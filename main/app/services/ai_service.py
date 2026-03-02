@@ -1,10 +1,11 @@
 from typing import List
 import json
-from app.config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL
+from app.config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, ZHIPU_API_KEY
 
 class AIService:
     def __init__(self):
         self.client = None
+        self.zhipu_client = None
         
         if OPENAI_API_KEY:
             try:
@@ -13,6 +14,13 @@ class AIService:
                 if OPENAI_BASE_URL:
                     client_kwargs["base_url"] = OPENAI_BASE_URL
                 self.client = OpenAI(**client_kwargs)
+            except ImportError:
+                pass
+        
+        if ZHIPU_API_KEY:
+            try:
+                from zai import ZhipuAiClient
+                self.zhipu_client = ZhipuAiClient(api_key=ZHIPU_API_KEY)
             except ImportError:
                 pass
     
@@ -111,17 +119,15 @@ class AIService:
         return f"[摘要] {content[:100]}..." if content else ""
     
     async def refine_ocr_content(self, content: str) -> str:
-        """使用AI整理OCR识别的内容"""
-        if not self.client:
-            return content
-        
-        try:
-            response = self.client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": """你是一个专业的笔记整理助手。
+        """使用AI整理OCR识别的内容 - 使用智谱 glm-4.7-flash 模型"""
+        if self.zhipu_client:
+            try:
+                response = self.zhipu_client.chat.completions.create(
+                    model="glm-4.7-flash",
+                    messages=[
+                        {
+                            "role": "system", 
+                            "content": """你是一个专业的笔记整理助手。
 你的任务是对OCR识别的笔记内容进行整理和修正。
 
 常见OCR错误类型：
@@ -136,13 +142,47 @@ class AIService:
 3. 补充正确的标点符号
 4. 使内容结构清晰、易读
 5. 直接输出整理后的内容，不要解释做了哪些修改"""
-                    },
-                    {"role": "user", "content": f"请整理以下OCR识别的物理笔记内容（这是一份关于凸透镜成像规律的笔记）：\n\n{content}"}
-                ],
-                max_tokens=4000,
-            )
-            result = response.choices[0].message.content or content
-            return result
-        except Exception as e:
-            print(f"AI refine OCR failed: {e}")
-            return content
+                        },
+                        {"role": "user", "content": f"请整理以下OCR识别的物理笔记内容（这是一份关于凸透镜成像规律的笔记）：\n\n{content}"}
+                    ],
+                    thinking={"type": "enabled"},
+                    max_tokens=4000,
+                )
+                result = response.choices[0].message.content or content
+                return result
+            except Exception as e:
+                print(f"ZhipuAI refine OCR failed: {e}")
+        
+        if self.client:
+            try:
+                response = self.client.chat.completions.create(
+                    model=OPENAI_MODEL,
+                    messages=[
+                        {
+                            "role": "system", 
+                            "content": """你是一个专业的笔记整理助手。
+你的任务是对OCR识别的笔记内容进行整理和修正。
+
+常见OCR错误类型：
+- 错别字：如"们的心"应为"它们的中心"，"到立"应为"倒立"
+- 漏字：如"缩"应为"缩小"
+- 表格格式混乱
+- 标点符号缺失或错误
+
+整理要求：
+1. 修正所有明显的OCR识别错误
+2. 还原表格格式（使用Markdown表格语法）
+3. 补充正确的标点符号
+4. 使内容结构清晰、易读
+5. 直接输出整理后的内容，不要解释做了哪些修改"""
+                        },
+                        {"role": "user", "content": f"请整理以下OCR识别的物理笔记内容（这是一份关于凸透镜成像规律的笔记）：\n\n{content}"}
+                    ],
+                    max_tokens=4000,
+                )
+                result = response.choices[0].message.content or content
+                return result
+            except Exception as e:
+                print(f"AI refine OCR failed: {e}")
+        
+        return content

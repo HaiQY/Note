@@ -24,6 +24,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4")
 
+ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "")
+
 AI_REFINE_OCR = os.getenv("AI_REFINE_OCR", "false").lower() == "true"
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
