@@ -167,29 +167,7 @@
       <div id="list-cards-advanced" style="display:none;"><span class="advanced-toggle" data-target="list-cards-raw">▼ 查看原始响应</span><pre id="list-cards-raw" class="raw-json" style="display:none;"></pre></div>
     </section>
 
-    <section class="card">
-      <h2>提交复习</h2>
-      <p class="text-muted mb-0 mt-1">对某张卡片完成复习后，填写质量与耗时并提交。</p>
-      <div class="form-group mt-2">
-        <label>选择卡片</label>
-        <input type="number" id="review-card-id" placeholder="在上方列表中点击某张卡片，或输入卡片 ID" />
-      </div>
-      <div class="form-group">
-        <label>回忆质量 (0–5)</label>
-        <input type="number" id="review-quality" min="0" max="5" placeholder="0 完全忘记，5 非常熟练" />
-      </div>
-      <div class="form-group">
-        <label>本次耗时（秒）</label>
-        <input type="number" id="review-time" min="0" placeholder="可选" />
-      </div>
-      <div class="btn-group">
-        <button type="button" id="review-card-btn" class="btn btn-primary">提交复习</button>
-      </div>
-      <div id="review-readable" class="result-readable" style="display:none;"></div>
-      <div id="review-advanced" style="display:none;"><span class="advanced-toggle" data-target="review-raw">▼ 查看原始响应</span><pre id="review-raw" class="raw-json" style="display:none;"></pre></div>
-    </section>
-
-    <section class="card">
+<section class="card">
       <h2>卡片管理</h2>
       <p class="text-muted mb-0 mt-1">选择一张卡片后可预览、修改问题/答案或删除。</p>
 
@@ -290,10 +268,9 @@
         const d = res.data || {};
         const cards = d.cards || [];
         let html = '<p class="success-msg">' + (res.message || '成功生成 ' + cards.length + ' 张卡片') + '</p>';
-        cards.forEach((c, i) => {
+cards.forEach((c, i) => {
           const q = (c.question || '').slice(0, 80) + ((c.question || '').length > 80 ? '…' : '');
-          const a = (c.answer || '').slice(0, 80) + ((c.answer || '').length > 80 ? '…' : '');
-          html += '<div class="detail-row"><span class="detail-label">' + (i + 1) + '</span><span class="detail-value"><strong>问</strong> ' + esc(q) + '<br><strong>答</strong> ' + esc(a) + '</span></div>';
+          html += '<div class="detail-row"><span class="detail-label">' + (i + 1) + '</span><span class="detail-value"><strong>问</strong> ' + esc(q) + '</span></div>';
         });
         readEl.innerHTML = html;
         advEl.style.display = 'block';
@@ -559,20 +536,18 @@
         if (!items.length) {
           tableEl.innerHTML = '<p class="text-muted">暂无卡片。请先从笔记生成。</p>';
         } else {
-          let html = '<table><thead><tr><th>ID</th><th>问题</th><th>答案</th><th>类型</th><th>下次复习</th><th>复习次数</th></tr></thead><tbody>';
+let html = '<table><thead><tr><th>ID</th><th>问题</th><th>答案</th><th>类型</th><th>下次复习</th><th>复习次数</th></tr></thead><tbody>';
           items.forEach(c => {
             const q = (c.question || '').slice(0, 40) + ((c.question || '').length > 40 ? '…' : '');
-            const a = (c.answer || '').slice(0, 40) + ((c.answer || '').length > 40 ? '…' : '');
             const next = c.next_review ? c.next_review.slice(0, 10) : '-';
-            html += '<tr data-card-id="' + c.id + '" role="button" tabindex="0"><td>' + c.id + '</td><td>' + esc(q) + '</td><td>' + esc(a) + '</td><td>' + esc(c.card_type || '') + '</td><td>' + next + '</td><td>' + (c.review_count || 0) + '</td></tr>';
+            html += '<tr data-card-id="' + c.id + '" role="button" tabindex="0"><td>' + c.id + '</td><td>' + esc(q) + '</td><td style="color:var(--text-muted);">***</td><td>' + esc(c.card_type || '') + '</td><td>' + next + '</td><td>' + (c.review_count || 0) + '</td></tr>';
           });
           html += '</tbody></table>';
           tableEl.innerHTML = html;
           tableEl.querySelectorAll('tr[data-card-id]').forEach(tr => {
-            tr.addEventListener('click', async function () {
+tr.addEventListener('click', async function () {
               const cardId = this.dataset.cardId;
               document.getElementById('current-card-id').value = cardId;
-              document.getElementById('review-card-id').value = cardId;
 
               // 自动加载卡片到预览
               try {
@@ -592,30 +567,7 @@
       } catch (err) {
         tableEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
       }
-    });
-
-    document.getElementById('review-card-btn').addEventListener('click', async () => {
-      const id = document.getElementById('review-card-id').value;
-      const quality = parseInt(document.getElementById('review-quality').value, 10);
-      const time = parseInt(document.getElementById('review-time').value, 10) || 0;
-      const readEl = document.getElementById('review-readable');
-      const advEl = document.getElementById('review-advanced');
-      if (!id) { readEl.innerHTML = '<span style="color:var(--danger);">请选择或输入卡片 ID</span>'; readEl.style.display = 'block'; return; }
-      readEl.innerHTML = '提交中…';
-      readEl.style.display = 'block';
-      advEl.style.display = 'none';
-      try {
-        const res = await api.reviewCard(id, { quality, time_spent: time });
-        const d = res.data || {};
-        const nextStr = d.next_review ? d.next_review.slice(0, 10) : '-';
-        readEl.innerHTML = '<p class="success-msg">' + (res.message || '复习已记录') + '</p><div class="detail-row"><span class="detail-label">下次复习</span><span class="detail-value">' + nextStr + '</span></div><div class="detail-row"><span class="detail-label">间隔（天）</span><span class="detail-value">' + (d.interval ?? '-') + '</span></div>';
-        readEl.style.display = 'block';
-        advEl.style.display = 'block';
-        document.getElementById('review-raw').textContent = JSON.stringify(res, null, 2);
-      } catch (err) {
-        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
-      }
-    });
+});
 
     // 加载卡片按钮
     document.getElementById('load-card-btn').addEventListener('click', async () => {
@@ -750,7 +702,6 @@
         await api.deleteCard(id);
         readEl.innerHTML = '<p class="success-msg">删除成功</p>';
         document.getElementById('current-card-id').value = '';
-        document.getElementById('review-card-id').value = '';
 
         // 清理编辑框和预览
         document.getElementById('update-card-question').value = '';

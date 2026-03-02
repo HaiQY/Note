@@ -74,6 +74,9 @@ class AIService:
                     {"role": "system", "content": "你是一个专业的学习助手，擅长根据笔记内容生成高质量的复习卡片。"},
                     {"role": "user", "content": prompt}
                 ],
+                extra_body={
+                    "thinking": {"type": "disabled"}
+                },
                 max_tokens=2000
             )
             
@@ -138,7 +141,7 @@ class AIService:
 
 整理要求：
 1. 修正所有明显的OCR识别错误
-2. 还原表格格式（使用Markdown表格语法）
+2. 还原表格格式（使用Markdown表格语法），但其它地方不要使用Markdown语法
 3. 补充正确的标点符号
 4. 使内容结构清晰、易读
 5. 直接输出整理后的内容，不要解释做了哪些修改"""
