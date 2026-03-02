@@ -1,3 +1,4 @@
 .vscode/*
 .env
+**/__pycache__/
 zai glm-4.7flash调用示例.txt
