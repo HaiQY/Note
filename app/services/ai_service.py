@@ -145,7 +145,7 @@ class AIService:
                         },
                         {"role": "user", "content": f"请整理以下OCR识别的物理笔记内容（这是一份关于凸透镜成像规律的笔记）：\n\n{content}"}
                     ],
-                    thinking={"type": "enabled"},
+                    thinking={"type": "disabled"},
                     max_tokens=128000,
                 )
                 result = response.choices[0].message.content or content

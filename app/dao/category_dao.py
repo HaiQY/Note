@@ -4,11 +4,11 @@ from app.models.category import Category
 
 class CategoryDAO:
     DEFAULT_CATEGORIES = [
-        {"name": "数学", "keywords": ["数学", "函数", "方程", "定理", "证明", "积分", "微分"], "color": "#e74c3c"},
-        {"name": "物理", "keywords": ["物理", "力学", "电磁", "光学", "量子", "能量", "动量"], "color": "#3498db"},
-        {"name": "化学", "keywords": ["化学", "反应", "分子", "原子", "有机", "无机", "化学式"], "color": "#2ecc71"},
-        {"name": "英语", "keywords": ["English", "英语", "grammar", "vocabulary", "单词", "语法"], "color": "#f39c12"},
-        {"name": "编程", "keywords": ["编程", "代码", "算法", "数据结构", "Python", "JavaScript", "函数"], "color": "#9b59b6"},
+        {"name": "数学", "keywords": ["数学", "函数", "方程", "定理", "证明", "积分", "微分", "代数", "几何", "三角", "概率", "统计", "数列", "极限"], "color": "#e74c3c"},
+        {"name": "物理", "keywords": ["物理", "力学", "电磁", "光学", "量子", "能量", "动量", "透镜", "凸透镜", "凹透镜", "成像", "光", "电", "磁", "力", "速度", "加速度", "质量", "功", "功率", "电路", "电阻", "电压", "电流", "牛顿", "焦耳"], "color": "#3498db"},
+        {"name": "化学", "keywords": ["化学", "反应", "分子", "原子", "有机", "无机", "化学式", "元素", "化合物", "溶液", "酸", "碱", "盐", "氧化", "还原", "电解", "离子", "键"], "color": "#2ecc71"},
+        {"name": "英语", "keywords": ["English", "英语", "grammar", "vocabulary", "单词", "语法", "verb", "noun", "adjective", "tense", "sentence", "翻译", "阅读", "听力"], "color": "#f39c12"},
+        {"name": "编程", "keywords": ["编程", "代码", "算法", "数据结构", "Python", "JavaScript", "函数", "变量", "循环", "条件", "数组", "对象", "类", "API", "HTTP", "数据库", "前端", "后端"], "color": "#9b59b6"},
         {"name": "其他", "keywords": [], "color": "#95a5a6"},
     ]
     
@@ -62,11 +62,12 @@ class CategoryDAO:
         return True
     
     def init_default_categories(self):
+        import json
         for i, cat_data in enumerate(self.DEFAULT_CATEGORIES):
             if not self.get_by_name(cat_data["name"]):
                 category = Category(
                     name=cat_data["name"],
-                    keywords=str(cat_data["keywords"]),
+                    keywords=json.dumps(cat_data["keywords"], ensure_ascii=False),
                     color=cat_data["color"],
                     sort_order=i
                 )
