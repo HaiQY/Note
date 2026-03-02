@@ -7,7 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="common.css">
+<link rel="stylesheet" href="common.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
   <header class="app-header">
@@ -76,6 +77,14 @@
       </div>
       <div id="notes-table-container" class="table-wrap">
         <p class="text-muted">点击「全部笔记」或输入关键词搜索以加载列表。</p>
+      </div>
+    </section>
+
+<section class="card" id="note-viewer">
+      <h2>笔记查看</h2>
+      <p class="text-muted mb-0 mt-1">在列表中点击笔记即可在此查看 Markdown 渲染效果。</p>
+      <div id="note-viewer-content" class="markdown-body">
+        <p class="text-muted" style="text-align:center;padding:2rem;">请从上方列表选择一篇笔记</p>
       </div>
     </section>
 
@@ -256,12 +265,28 @@
     const notesTableContainer = document.getElementById('notes-table-container');
     const currentNoteIdInput = document.getElementById('current-note-id');
 
-    notesTableContainer.addEventListener('click', (e) => {
+async function loadNoteToViewer(noteId) {
+      const viewerContent = document.getElementById('note-viewer-content');
+      viewerContent.innerHTML = '<p class="text-muted" style="text-align:center;padding:2rem;">加载中...</p>';
+      try {
+        const data = await api.getNote(noteId);
+        if (data.content) {
+          viewerContent.innerHTML = marked.parse(data.content);
+        } else {
+          viewerContent.innerHTML = '<p class="text-muted" style="text-align:center;padding:2rem;">该笔记暂无内容</p>';
+        }
+      } catch (err) {
+        viewerContent.innerHTML = '<p class="text-muted" style="text-align:center;padding:2rem;color:var(--danger);">加载失败: ' + (err + '').replace(/</g, '&lt;') + '</p>';
+      }
+    }
+
+    notesTableContainer.addEventListener('click', async (e) => {
       const row = e.target.closest('tr[data-note-id]');
       if (row) {
         currentNoteIdInput.value = row.dataset.noteId;
         const titleEl = document.getElementById('current-note-title');
         if (titleEl) titleEl.textContent = row.dataset.noteTitle ? '已选：' + row.dataset.noteTitle.replace(/&quot;/g, '"') : '';
+        loadNoteToViewer(row.dataset.noteId);
       }
     });
 
