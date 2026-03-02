@@ -65,6 +65,37 @@ class MarkdownService:
         
         return str(file_path)
     
+    async def save_markdown_content(self, note: Note, category: Optional[Category] = None, markdown_content: str = "") -> str:
+        category_name = category.name if category else "未分类"
+        category_dir = MARKDOWN_DIR / category_name
+        category_dir.mkdir(parents=True, exist_ok=True)
+        
+        filename = f"{note.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+        file_path = category_dir / filename
+        
+        title = note.title or f"笔记 {note.id}"
+        date = note.created_at.strftime("%Y-%m-%d %H:%M") if note.created_at else ""
+        keywords = note.get_keywords_list()
+        
+        frontmatter = "---\n"
+        frontmatter += f"title: {title}\n"
+        frontmatter += f"date: {date}\n"
+        frontmatter += f"category: {category_name}\n"
+        frontmatter += f"keywords: {keywords}\n"
+        frontmatter += "---\n\n"
+        
+        if note.image_path:
+            image_rel_path = self._get_relative_image_path(note.image_path)
+            image_section = f"![笔记图片](../{image_rel_path})\n\n"
+            markdown_content = image_section + markdown_content
+        
+        full_content = frontmatter + markdown_content
+        
+        async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
+            await f.write(full_content)
+        
+        return str(file_path)
+    
     def _get_relative_image_path(self, image_path: str) -> str:
         try:
             path = Path(image_path)

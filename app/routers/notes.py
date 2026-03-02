@@ -8,9 +8,9 @@ from pathlib import Path
 from app.database import get_db
 from app.schemas import ResponseBase, NoteResponse, NoteUpdate, NoteUploadResponse
 from app.dao import NoteDAO, CategoryDAO
-from app.services import OCRService, ClassifyService, KeywordService, MarkdownService, AIService
+from app.services import OCRService, StructureService, ClassifyService, KeywordService, MarkdownService, AIService
 from app.utils import save_upload_file, validate_image, get_relative_path, extract_preview
-from app.config import IMAGES_DIR, AI_REFINE_OCR
+from app.config import IMAGES_DIR, AI_REFINE_OCR, USE_STRUCTURE_V3
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
@@ -29,16 +29,37 @@ async def upload_note(
     file_path = await save_upload_file(file_content, file.filename)
     relative_path = get_relative_path(file_path)
     
-    ocr_service = OCRService()
-    ocr_result = ocr_service.process_image(str(file_path))
-    
     note_dao = NoteDAO(db)
     title = f"{datetime.now().strftime('%Y-%m-%d')} 笔记"
     
-    content = ocr_result.text
-    if AI_REFINE_OCR and ocr_result.text:
+    if USE_STRUCTURE_V3:
+        structure_service = StructureService()
+        structure_result = structure_service.process_image(str(file_path))
+        
+        content = structure_result.text or ""
+        markdown_content = structure_result.markdown
+        ocr_confidence = structure_result.confidence
+        formula_count = structure_result.formula_count
+        table_count = structure_result.table_count
+        
+        if structure_result.diagram_regions:
+            diagram_structure = structure_service.extract_diagram_structure(str(file_path))
+            if diagram_structure.get('nodes'):
+                mermaid_code = structure_service.generate_mermaid(diagram_structure)
+                if mermaid_code:
+                    markdown_content += f"\n\n{mermaid_code}"
+    else:
+        ocr_service = OCRService()
+        ocr_result = ocr_service.process_image(str(file_path))
+        content = ocr_result.text
+        markdown_content = None
+        ocr_confidence = ocr_result.confidence
+        formula_count = 0
+        table_count = 0
+    
+    if AI_REFINE_OCR and content:
         ai_service = AIService()
-        content = await ai_service.refine_ocr_content(ocr_result.text)
+        content = await ai_service.refine_ocr_content(content)
     
     category_id = None
     if auto_classify and content:
@@ -58,7 +79,7 @@ async def upload_note(
         content=content,
         category_id=category_id,
         keywords=keywords,
-        ocr_confidence=ocr_result.confidence,
+        ocr_confidence=ocr_confidence,
         source="upload"
     )
     
@@ -66,7 +87,10 @@ async def upload_note(
     category = category_dao.get_by_id(category_id) if category_id else None
     
     markdown_service = MarkdownService()
-    markdown_path = await markdown_service.save_markdown(note, category)
+    if markdown_content:
+        markdown_path = await markdown_service.save_markdown_content(note, category, markdown_content)
+    else:
+        markdown_path = await markdown_service.save_markdown(note, category)
     note_dao.update(note.id, markdown_path=markdown_path, status="published")
     
     return ResponseBase(
@@ -80,6 +104,8 @@ async def upload_note(
             "category": {"id": category.id, "name": category.name} if category else None,
             "keywords": note.get_keywords_list(),
             "ocr_confidence": note.ocr_confidence,
+            "formula_count": formula_count,
+            "table_count": table_count,
             "created_at": note.created_at.isoformat()
         }
     )
@@ -199,8 +225,6 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
     if not note:
         raise HTTPException(status_code=404, detail="笔记不存在")
     
-    ocr_service = OCRService()
-    
     image_path = Path(note.image_path)
     if not image_path.is_absolute():
         image_path = IMAGES_DIR.parent / note.image_path
@@ -208,17 +232,30 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="图片文件不存在")
     
-    ocr_result = ocr_service.process_image(str(image_path))
+    if USE_STRUCTURE_V3:
+        structure_service = StructureService()
+        structure_result = structure_service.process_image(str(image_path))
+        
+        content = structure_result.text or ""
+        ocr_confidence = structure_result.confidence
+        formula_count = structure_result.formula_count
+        table_count = structure_result.table_count
+    else:
+        ocr_service = OCRService()
+        ocr_result = ocr_service.process_image(str(image_path))
+        content = ocr_result.text
+        ocr_confidence = ocr_result.confidence
+        formula_count = 0
+        table_count = 0
     
-    content = ocr_result.text
-    if AI_REFINE_OCR and ocr_result.text:
+    if AI_REFINE_OCR and content:
         ai_service = AIService()
-        content = await ai_service.refine_ocr_content(ocr_result.text)
+        content = await ai_service.refine_ocr_content(content)
     
     note_dao.update(
         note_id,
         content=content,
-        ocr_confidence=ocr_result.confidence
+        ocr_confidence=ocr_confidence
     )
     
     return ResponseBase(
@@ -227,7 +264,9 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
         data={
             "id": note_id,
             "content": content,
-            "ocr_confidence": ocr_result.confidence
+            "ocr_confidence": ocr_confidence,
+            "formula_count": formula_count,
+            "table_count": table_count
         }
     )
 
