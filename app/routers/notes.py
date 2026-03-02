@@ -8,9 +8,9 @@ from pathlib import Path
 from app.database import get_db
 from app.schemas import ResponseBase, NoteResponse, NoteUpdate, NoteUploadResponse
 from app.dao import NoteDAO, CategoryDAO
-from app.services import OCRService, ClassifyService, KeywordService, MarkdownService
+from app.services import OCRService, ClassifyService, KeywordService, MarkdownService, AIService
 from app.utils import save_upload_file, validate_image, get_relative_path, extract_preview
-from app.config import IMAGES_DIR
+from app.config import IMAGES_DIR, AI_REFINE_OCR
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
@@ -35,22 +35,27 @@ async def upload_note(
     note_dao = NoteDAO(db)
     title = f"{datetime.now().strftime('%Y-%m-%d')} 笔记"
     
+    content = ocr_result.text
+    if AI_REFINE_OCR and ocr_result.text:
+        ai_service = AIService()
+        content = await ai_service.refine_ocr_content(ocr_result.text)
+    
     category_id = None
-    if auto_classify and ocr_result.text:
+    if auto_classify and content:
         classify_service = ClassifyService(db)
-        category = classify_service.classify(ocr_result.text)
+        category = classify_service.classify(content)
         if category:
             category_id = category.id
     
     keywords = []
-    if auto_keywords and ocr_result.text:
+    if auto_keywords and content:
         keyword_service = KeywordService()
-        keywords = keyword_service.extract_keywords(ocr_result.text)
+        keywords = keyword_service.extract_keywords(content)
     
     note = note_dao.create(
         image_path=relative_path,
         title=title,
-        content=ocr_result.text,
+        content=content,
         category_id=category_id,
         keywords=keywords,
         ocr_confidence=ocr_result.confidence,
@@ -195,8 +200,6 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="笔记不存在")
     
     ocr_service = OCRService()
-    from pathlib import Path
-    from app.config import IMAGES_DIR
     
     image_path = Path(note.image_path)
     if not image_path.is_absolute():
@@ -207,9 +210,14 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
     
     ocr_result = ocr_service.process_image(str(image_path))
     
+    content = ocr_result.text
+    if AI_REFINE_OCR and ocr_result.text:
+        ai_service = AIService()
+        content = await ai_service.refine_ocr_content(ocr_result.text)
+    
     note_dao.update(
         note_id,
-        content=ocr_result.text,
+        content=content,
         ocr_confidence=ocr_result.confidence
     )
     
@@ -218,7 +226,7 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
         message="重新处理完成",
         data={
             "id": note_id,
-            "content": ocr_result.text,
+            "content": content,
             "ocr_confidence": ocr_result.confidence
         }
     )

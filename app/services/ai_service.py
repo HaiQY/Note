@@ -146,43 +146,11 @@ class AIService:
                         {"role": "user", "content": f"请整理以下OCR识别的物理笔记内容（这是一份关于凸透镜成像规律的笔记）：\n\n{content}"}
                     ],
                     thinking={"type": "enabled"},
-                    max_tokens=4000,
+                    max_tokens=128000,
                 )
                 result = response.choices[0].message.content or content
                 return result
             except Exception as e:
                 print(f"ZhipuAI refine OCR failed: {e}")
-        
-        if self.client:
-            try:
-                response = self.client.chat.completions.create(
-                    model=OPENAI_MODEL,
-                    messages=[
-                        {
-                            "role": "system", 
-                            "content": """你是一个专业的笔记整理助手。
-你的任务是对OCR识别的笔记内容进行整理和修正。
-
-常见OCR错误类型：
-- 错别字：如"们的心"应为"它们的中心"，"到立"应为"倒立"
-- 漏字：如"缩"应为"缩小"
-- 表格格式混乱
-- 标点符号缺失或错误
-
-整理要求：
-1. 修正所有明显的OCR识别错误
-2. 还原表格格式（使用Markdown表格语法）
-3. 补充正确的标点符号
-4. 使内容结构清晰、易读
-5. 直接输出整理后的内容，不要解释做了哪些修改"""
-                        },
-                        {"role": "user", "content": f"请整理以下OCR识别的物理笔记内容（这是一份关于凸透镜成像规律的笔记）：\n\n{content}"}
-                    ],
-                    max_tokens=4000,
-                )
-                result = response.choices[0].message.content or content
-                return result
-            except Exception as e:
-                print(f"AI refine OCR failed: {e}")
         
         return content
