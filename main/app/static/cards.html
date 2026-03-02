@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>复习卡片 - 笔记管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="common.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">
+      <a href="index.html">📒 笔记管理</a>
+    </div>
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="打开菜单">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <nav>
+      <ul>
+        <li><a href="index.html">首页</a></li>
+        <li><a href="notes.html">笔记</a></li>
+        <li><a href="cards.html" class="active">复习卡片</a></li>
+        <li><a href="categories.html">分类管理</a></li>
+        <li><a href="tools.html">工具</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="main-wrap">
+    <div class="page-header">
+      <h1>复习卡片</h1>
+      <p>从笔记生成卡片、查看列表并提交复习记录。</p>
+    </div>
+
+    <section class="card" id="generate">
+      <h2>生成复习卡</h2>
+      <p class="text-muted mb-0 mt-1">选择笔记并设置卡片类型后生成复习卡片。</p>
+
+      <div class="form-group mt-2">
+        <label>选择笔记</label>
+        <select id="card-note-select">
+          <option value="">-- 请选择笔记 --</option>
+        </select>
+        <span id="selected-note-title" class="text-muted" style="font-size:0.85rem; display:block; margin-top:0.25rem;"></span>
+      </div>
+
+      <div class="form-group">
+        <label>生成数量</label>
+        <input type="number" id="card-count" value="5" min="1" max="20" />
+      </div>
+
+      <div class="form-group">
+        <label>卡片类型</label>
+        <p class="text-muted mb-0" style="font-size:0.85rem;">选择要生成的卡片类型（可多选）：</p>
+        <div class="card-type-options mt-1">
+          <label class="checkbox-label">
+            <input type="checkbox" name="card-type" value="qa" checked />
+            <span>问答题 (QA)</span>
+            <small class="text-muted">— 正面问题，背面答案的传统复习卡</small>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" name="card-type" value="fill_blank" />
+            <span>填空题 (填空)</span>
+            <small class="text-muted">— 句子挖空，填写关键词的卡片</small>
+          </label>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button type="button" id="generate-cards-btn" class="btn btn-primary">生成复习卡</button>
+        <button type="button" id="refresh-notes-btn" class="btn btn-secondary">刷新笔记列表</button>
+      </div>
+
+      <div id="cards-readable" class="result-readable" style="display:none;"></div>
+      <div id="cards-advanced" style="display:none;"><span class="advanced-toggle" data-target="cards-raw">▼ 查看原始响应</span><pre id="cards-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+
+    <section class="card" id="study-section">
+      <h2>开始复习</h2>
+      <p class="text-muted mb-0 mt-1">加载待复习卡片，查看问题并回忆答案，翻转核对后提交复习质量。</p>
+
+      <div class="form-group mt-2">
+        <label>待复习卡片</label>
+        <div class="study-controls">
+          <select id="study-card-select">
+            <option value="">-- 加载待复习卡片 --</option>
+          </select>
+          <button type="button" id="load-review-cards-btn" class="btn btn-secondary">加载列表</button>
+        </div>
+        <span id="study-card-info" class="text-muted" style="font-size:0.85rem; display:block; margin-top:0.25rem;"></span>
+      </div>
+
+      <div class="form-group">
+        <label>卡片复习</label>
+        <div class="card-preview-container" id="study-card-preview-container">
+          <div class="card-preview" id="study-card-preview">
+            <div class="card-preview-front" id="study-card-preview-front">
+              <span class="card-preview-label">正面（问题）— 先回忆答案</span>
+              <div class="card-preview-content" id="study-card-question">加载卡片开始复习</div>
+            </div>
+            <div class="card-preview-back" id="study-card-preview-back" style="display:none;">
+              <span class="card-preview-label">背面（答案）— 核对回忆</span>
+              <div class="card-preview-content" id="study-card-answer"></div>
+            </div>
+          </div>
+          <button type="button" id="study-flip-btn" class="btn btn-sm btn-secondary card-flip-btn">翻转查看答案</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>复习评估</label>
+        <p class="text-muted mb-0" style="font-size:0.85rem;">看完答案后，评估你的回忆质量：</p>
+        <div class="quality-options mt-1">
+          <label class="quality-option">
+            <input type="radio" name="study-quality" value="0" />
+            <span>0 - 完全忘记</span>
+          </label>
+          <label class="quality-option">
+            <input type="radio" name="study-quality" value="1" />
+            <span>1 - 几乎忘记</span>
+          </label>
+          <label class="quality-option">
+            <input type="radio" name="study-quality" value="2" />
+            <span>2 - 想起一点</span>
+          </label>
+          <label class="quality-option">
+            <input type="radio" name="study-quality" value="3" />
+            <span>3 - 勉强想起</span>
+          </label>
+          <label class="quality-option">
+            <input type="radio" name="study-quality" value="4" />
+            <span>4 - 基本正确</span>
+          </label>
+          <label class="quality-option">
+            <input type="radio" name="study-quality" value="5" checked />
+            <span>5 - 完全正确</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>本次耗时（秒，可选）</label>
+        <input type="number" id="study-time" min="0" placeholder="记录复习用时" />
+      </div>
+
+      <div class="btn-group">
+        <button type="button" id="submit-study-btn" class="btn btn-primary">提交复习结果</button>
+        <button type="button" id="next-card-btn" class="btn btn-secondary">下一张卡片</button>
+      </div>
+
+      <div id="study-result" class="result-readable" style="display:none;"></div>
+    </section>
+
+    <section class="card">
+      <h2>卡片列表</h2>
+      <p class="text-muted mb-0 mt-1">加载后点击某张卡片可选中，用于下方「提交复习」或「卡片管理」。</p>
+      <div class="btn-group mt-1">
+        <button type="button" id="list-cards-btn" class="btn btn-secondary">加载卡片列表</button>
+      </div>
+      <div id="list-cards-table" class="table-wrap mt-2" style="display:none;"></div>
+      <div id="list-cards-advanced" style="display:none;"><span class="advanced-toggle" data-target="list-cards-raw">▼ 查看原始响应</span><pre id="list-cards-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+
+    <section class="card">
+      <h2>提交复习</h2>
+      <p class="text-muted mb-0 mt-1">对某张卡片完成复习后，填写质量与耗时并提交。</p>
+      <div class="form-group mt-2">
+        <label>选择卡片</label>
+        <input type="number" id="review-card-id" placeholder="在上方列表中点击某张卡片，或输入卡片 ID" />
+      </div>
+      <div class="form-group">
+        <label>回忆质量 (0–5)</label>
+        <input type="number" id="review-quality" min="0" max="5" placeholder="0 完全忘记，5 非常熟练" />
+      </div>
+      <div class="form-group">
+        <label>本次耗时（秒）</label>
+        <input type="number" id="review-time" min="0" placeholder="可选" />
+      </div>
+      <div class="btn-group">
+        <button type="button" id="review-card-btn" class="btn btn-primary">提交复习</button>
+      </div>
+      <div id="review-readable" class="result-readable" style="display:none;"></div>
+      <div id="review-advanced" style="display:none;"><span class="advanced-toggle" data-target="review-raw">▼ 查看原始响应</span><pre id="review-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+
+    <section class="card">
+      <h2>卡片管理</h2>
+      <p class="text-muted mb-0 mt-1">选择一张卡片后可预览、修改问题/答案或删除。</p>
+
+      <div class="form-group mt-2">
+        <label>选择卡片</label>
+        <input type="number" id="current-card-id" placeholder="在上方列表中点击某张卡片，或输入卡片 ID" />
+      </div>
+
+      <div class="form-group">
+        <label>卡片预览</label>
+        <div class="card-preview-container" id="card-preview-container">
+          <div class="card-preview" id="card-preview">
+            <div class="card-preview-front" id="card-preview-front">
+              <span class="card-preview-label">正面（问题）</span>
+              <div class="card-preview-content" id="card-preview-question">点击「加载卡片」预览</div>
+            </div>
+            <div class="card-preview-back" id="card-preview-back" style="display:none;">
+              <span class="card-preview-label">背面（答案）</span>
+              <div class="card-preview-content" id="card-preview-answer"></div>
+            </div>
+          </div>
+          <button type="button" id="flip-card-btn" class="btn btn-sm btn-secondary card-flip-btn">翻转查看答案</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>问题</label>
+        <input type="text" id="update-card-question" placeholder="卡片正面/问题" />
+      </div>
+      <div class="form-group">
+        <label>答案</label>
+        <textarea id="update-card-answer" rows="3" placeholder="卡片背面/答案"></textarea>
+      </div>
+      <div class="btn-group">
+        <button type="button" id="load-card-btn" class="btn btn-secondary">加载卡片</button>
+        <button type="button" id="update-card-btn" class="btn btn-secondary">保存</button>
+        <button type="button" id="delete-card-btn" class="btn btn-danger">删除</button>
+      </div>
+      <span class="advanced-toggle mt-1" data-target="update-card-body">▼ 高级：JSON 编辑</span>
+      <textarea id="update-card-body" class="raw-json mt-1" rows="2" placeholder='{"question":"问题","answer":"答案"}' style="display:none;"></textarea>
+      <div id="card-mgmt-readable" class="result-readable" style="display:none;"></div>
+      <div id="card-mgmt-advanced" style="display:none;"><span class="advanced-toggle" data-target="card-mgmt-raw">▼ 查看原始响应</span><pre id="card-mgmt-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from './api.js';
+
+    function esc(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    document.body.addEventListener('click', function (e) {
+      const t = e.target.closest('.advanced-toggle');
+      if (!t) return;
+      const id = t.getAttribute('data-target');
+      const el = document.getElementById(id);
+      if (!el) return;
+      e.preventDefault();
+      const show = el.style.display === 'none';
+      el.style.display = show ? 'block' : 'none';
+      const closedText = id === 'update-card-body' ? '▼ 高级：JSON 编辑' : '▼ 查看原始响应';
+      t.textContent = show ? '▲ 收起' : closedText;
+    });
+
+    document.getElementById('generate-cards-btn').addEventListener('click', async () => {
+      const noteId = document.getElementById('card-note-select').value;
+      const count = parseInt(document.getElementById('card-count').value, 10) || 5;
+
+      // 获取选中的卡片类型
+      const typeCheckboxes = document.querySelectorAll('input[name="card-type"]:checked');
+      const types = Array.from(typeCheckboxes).map(cb => cb.value);
+
+      const readEl = document.getElementById('cards-readable');
+      const advEl = document.getElementById('cards-advanced');
+
+      if (!noteId) {
+        readEl.innerHTML = '<span style="color:var(--danger);">请先选择笔记</span>';
+        readEl.style.display = 'block';
+        return;
+      }
+
+      if (types.length === 0) {
+        readEl.innerHTML = '<span style="color:var(--danger);">请至少选择一种卡片类型</span>';
+        readEl.style.display = 'block';
+        return;
+      }
+
+      readEl.innerHTML = '生成中…';
+      readEl.style.display = 'block';
+      advEl.style.display = 'none';
+
+      try {
+        const res = await api.generateCards(noteId, { count, card_types: types });
+        const d = res.data || {};
+        const cards = d.cards || [];
+        let html = '<p class="success-msg">' + (res.message || '成功生成 ' + cards.length + ' 张卡片') + '</p>';
+        cards.forEach((c, i) => {
+          const q = (c.question || '').slice(0, 80) + ((c.question || '').length > 80 ? '…' : '');
+          const a = (c.answer || '').slice(0, 80) + ((c.answer || '').length > 80 ? '…' : '');
+          html += '<div class="detail-row"><span class="detail-label">' + (i + 1) + '</span><span class="detail-value"><strong>问</strong> ' + esc(q) + '<br><strong>答</strong> ' + esc(a) + '</span></div>';
+        });
+        readEl.innerHTML = html;
+        advEl.style.display = 'block';
+        document.getElementById('cards-raw').textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    // 加载笔记列表
+    async function loadNotesList() {
+      const select = document.getElementById('card-note-select');
+      const titleEl = document.getElementById('selected-note-title');
+
+      try {
+        const data = await api.getNotes({ page: 1, page_size: 100 });
+        const notes = data.items || [];
+
+        // 保存当前选择
+        const currentValue = select.value;
+
+        // 清空并重建选项
+        select.innerHTML = '<option value="">-- 请选择笔记 --</option>';
+
+        notes.forEach(note => {
+          const option = document.createElement('option');
+          option.value = note.id;
+          option.textContent = `#${note.id} - ${note.title || '无标题'} (${note.category?.name || '未分类'})`;
+          select.appendChild(option);
+        });
+
+        // 恢复选择（如果有）
+        if (currentValue) {
+          select.value = currentValue;
+        }
+
+        // 检查URL参数
+        const params = new URLSearchParams(location.search);
+        const generateNoteId = params.get('generate');
+        if (generateNoteId) {
+          select.value = generateNoteId;
+          // 显示标题
+          const note = notes.find(n => n.id == generateNoteId);
+          if (note) {
+            titleEl.textContent = `已选择: ${note.title || '无标题'}`;
+          }
+        }
+
+      } catch (err) {
+        console.error('加载笔记列表失败:', err);
+        select.innerHTML = '<option value="">-- 加载失败，请刷新 --</option>';
+      }
+    }
+
+    // 刷新按钮
+    document.getElementById('refresh-notes-btn').addEventListener('click', loadNotesList);
+
+    // 选择变化时更新标题显示
+    document.getElementById('card-note-select').addEventListener('change', async (e) => {
+      const noteId = e.target.value;
+      const titleEl = document.getElementById('selected-note-title');
+      if (noteId) {
+        try {
+          const note = await api.getNote(noteId);
+          titleEl.textContent = `已选择: ${note.title || '无标题'}`;
+        } catch (err) {
+          titleEl.textContent = '';
+        }
+      } else {
+        titleEl.textContent = '';
+      }
+    });
+
+    // 页面加载时自动加载笔记列表
+    loadNotesList();
+
+    // ========== 复习功能 ==========
+    let reviewCardsList = []; // 存储待复习卡片列表
+    let currentStudyIndex = -1; // 当前复习的卡片索引
+
+    // 加载待复习卡片列表
+    document.getElementById('load-review-cards-btn').addEventListener('click', async () => {
+      const select = document.getElementById('study-card-select');
+      const infoEl = document.getElementById('study-card-info');
+
+      select.innerHTML = '<option value="">-- 加载中... --</option>';
+      infoEl.textContent = '';
+
+      try {
+        // 获取需要复习的卡片
+        const data = await api.getReviewCards(50);
+        reviewCardsList = data.items || [];
+
+        if (reviewCardsList.length === 0) {
+          select.innerHTML = '<option value="">-- 暂无待复习卡片 --</option>';
+          infoEl.textContent = '今天没有需要复习的卡片，去生成一些新卡片吧！';
+          return;
+        }
+
+        // 填充下拉列表
+        select.innerHTML = '<option value="">-- 选择卡片开始复习 --</option>';
+        reviewCardsList.forEach((card, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          const q = (card.question || '').slice(0, 30) + ((card.question || '').length > 30 ? '…' : '');
+          option.textContent = `#${card.id} - ${q}`;
+          select.appendChild(option);
+        });
+
+        infoEl.textContent = `共 ${reviewCardsList.length} 张卡片待复习`;
+
+      } catch (err) {
+        console.error('加载复习卡片失败:', err);
+        select.innerHTML = '<option value="">-- 加载失败 --</option>';
+        infoEl.textContent = '加载失败，请重试';
+      }
+    });
+
+    // 选择卡片进行复习
+    document.getElementById('study-card-select').addEventListener('change', (e) => {
+      const index = parseInt(e.target.value, 10);
+      if (isNaN(index) || index < 0 || index >= reviewCardsList.length) {
+        resetStudyPreview();
+        return;
+      }
+
+      currentStudyIndex = index;
+      const card = reviewCardsList[index];
+
+      // 更新预览
+      updateStudyPreview(card.question, card.answer);
+      showStudyFront();
+
+      // 更新信息显示
+      const infoEl = document.getElementById('study-card-info');
+      const nextReview = card.next_review ? card.next_review.slice(0, 10) : '未安排';
+      infoEl.textContent = `卡片 #${card.id} | 类型: ${card.card_type || 'qa'} | 下次复习: ${nextReview}`;
+    });
+
+    // 翻转复习卡片
+    document.getElementById('study-flip-btn').addEventListener('click', () => {
+      const front = document.getElementById('study-card-preview-front');
+      const back = document.getElementById('study-card-preview-back');
+      const btn = document.getElementById('study-flip-btn');
+
+      if (back.style.display === 'none') {
+        // 显示背面（答案）
+        front.style.display = 'none';
+        back.style.display = 'flex';
+        btn.textContent = '翻转查看问题';
+      } else {
+        // 显示正面（问题）
+        showStudyFront();
+      }
+    });
+
+    // 显示复习卡片正面
+    function showStudyFront() {
+      const front = document.getElementById('study-card-preview-front');
+      const back = document.getElementById('study-card-preview-back');
+      const btn = document.getElementById('study-flip-btn');
+
+      front.style.display = 'flex';
+      back.style.display = 'none';
+      btn.textContent = '翻转查看答案';
+    }
+
+    // 更新复习卡片预览
+    function updateStudyPreview(question, answer) {
+      document.getElementById('study-card-question').textContent = question || '（无问题）';
+      document.getElementById('study-card-answer').textContent = answer || '（无答案）';
+    }
+
+    // 重置复习预览
+    function resetStudyPreview() {
+      updateStudyPreview('加载卡片开始复习', '');
+      showStudyFront();
+      currentStudyIndex = -1;
+    }
+
+    // 提交复习结果
+    document.getElementById('submit-study-btn').addEventListener('click', async () => {
+      if (currentStudyIndex < 0 || currentStudyIndex >= reviewCardsList.length) {
+        const resultEl = document.getElementById('study-result');
+        resultEl.innerHTML = '<span style="color:var(--danger);">请先选择卡片</span>';
+        resultEl.style.display = 'block';
+        return;
+      }
+
+      const card = reviewCardsList[currentStudyIndex];
+      const qualityRadio = document.querySelector('input[name="study-quality"]:checked');
+      const quality = qualityRadio ? parseInt(qualityRadio.value, 10) : 3;
+      const time = parseInt(document.getElementById('study-time').value, 10) || 0;
+
+      const resultEl = document.getElementById('study-result');
+      resultEl.innerHTML = '提交中…';
+      resultEl.style.display = 'block';
+
+      try {
+        const res = await api.reviewCard(card.id, { quality, time_spent: time });
+        const d = res.data || {};
+        const nextStr = d.next_review ? d.next_review.slice(0, 10) : '-';
+
+        resultEl.innerHTML = `
+          <p class="success-msg">复习完成！</p>
+          <div class="detail-row">
+            <span class="detail-label">评分</span>
+            <span class="detail-value">${quality} 分</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">下次复习</span>
+            <span class="detail-value">${nextStr}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">间隔</span>
+            <span class="detail-value">${d.interval || '-'} 天</span>
+          </div>
+        `;
+
+        // 更新卡片列表中的复习次数
+        card.review_count = (card.review_count || 0) + 1;
+
+      } catch (err) {
+        resultEl.innerHTML = '<span style="color:var(--danger);">提交失败: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    // 下一张卡片
+    document.getElementById('next-card-btn').addEventListener('click', () => {
+      if (reviewCardsList.length === 0) {
+        const resultEl = document.getElementById('study-result');
+        resultEl.innerHTML = '<span style="color:var(--warning);">请先加载卡片列表</span>';
+        resultEl.style.display = 'block';
+        return;
+      }
+
+      // 找到下一张卡片
+      let nextIndex = currentStudyIndex + 1;
+      if (nextIndex >= reviewCardsList.length) {
+        nextIndex = 0; // 循环到第一张
+      }
+
+      // 更新下拉选择
+      const select = document.getElementById('study-card-select');
+      select.value = nextIndex;
+
+      // 触发change事件
+      select.dispatchEvent(new Event('change'));
+
+      // 清空结果提示
+      document.getElementById('study-result').style.display = 'none';
+    });
+
+    document.getElementById('list-cards-btn').addEventListener('click', async () => {
+      const tableEl = document.getElementById('list-cards-table');
+      const advEl = document.getElementById('list-cards-advanced');
+      tableEl.innerHTML = '加载中…';
+      tableEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        const data = await api.getCards({ page: 1, page_size: 100 });
+        const items = data.items || [];
+        if (!items.length) {
+          tableEl.innerHTML = '<p class="text-muted">暂无卡片。请先从笔记生成。</p>';
+        } else {
+          let html = '<table><thead><tr><th>ID</th><th>问题</th><th>答案</th><th>类型</th><th>下次复习</th><th>复习次数</th></tr></thead><tbody>';
+          items.forEach(c => {
+            const q = (c.question || '').slice(0, 40) + ((c.question || '').length > 40 ? '…' : '');
+            const a = (c.answer || '').slice(0, 40) + ((c.answer || '').length > 40 ? '…' : '');
+            const next = c.next_review ? c.next_review.slice(0, 10) : '-';
+            html += '<tr data-card-id="' + c.id + '" role="button" tabindex="0"><td>' + c.id + '</td><td>' + esc(q) + '</td><td>' + esc(a) + '</td><td>' + esc(c.card_type || '') + '</td><td>' + next + '</td><td>' + (c.review_count || 0) + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          tableEl.innerHTML = html;
+          tableEl.querySelectorAll('tr[data-card-id]').forEach(tr => {
+            tr.addEventListener('click', async function () {
+              const cardId = this.dataset.cardId;
+              document.getElementById('current-card-id').value = cardId;
+              document.getElementById('review-card-id').value = cardId;
+
+              // 自动加载卡片到预览
+              try {
+                const card = await api.getCard(cardId);
+                document.getElementById('update-card-question').value = card.question || '';
+                document.getElementById('update-card-answer').value = card.answer || '';
+                updateCardPreview(card.question, card.answer);
+                showCardFront();
+              } catch (err) {
+                console.error('自动加载卡片失败:', err);
+              }
+            });
+          });
+        }
+        advEl.style.display = 'block';
+        document.getElementById('list-cards-raw').textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        tableEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    document.getElementById('review-card-btn').addEventListener('click', async () => {
+      const id = document.getElementById('review-card-id').value;
+      const quality = parseInt(document.getElementById('review-quality').value, 10);
+      const time = parseInt(document.getElementById('review-time').value, 10) || 0;
+      const readEl = document.getElementById('review-readable');
+      const advEl = document.getElementById('review-advanced');
+      if (!id) { readEl.innerHTML = '<span style="color:var(--danger);">请选择或输入卡片 ID</span>'; readEl.style.display = 'block'; return; }
+      readEl.innerHTML = '提交中…';
+      readEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        const res = await api.reviewCard(id, { quality, time_spent: time });
+        const d = res.data || {};
+        const nextStr = d.next_review ? d.next_review.slice(0, 10) : '-';
+        readEl.innerHTML = '<p class="success-msg">' + (res.message || '复习已记录') + '</p><div class="detail-row"><span class="detail-label">下次复习</span><span class="detail-value">' + nextStr + '</span></div><div class="detail-row"><span class="detail-label">间隔（天）</span><span class="detail-value">' + (d.interval ?? '-') + '</span></div>';
+        readEl.style.display = 'block';
+        advEl.style.display = 'block';
+        document.getElementById('review-raw').textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    // 加载卡片按钮
+    document.getElementById('load-card-btn').addEventListener('click', async () => {
+      const id = document.getElementById('current-card-id').value;
+      const readEl = document.getElementById('card-mgmt-readable');
+
+      if (!id) {
+        readEl.innerHTML = '<span style="color:var(--danger);">请选择或输入卡片 ID</span>';
+        readEl.style.display = 'block';
+        return;
+      }
+
+      readEl.innerHTML = '加载中…';
+      readEl.style.display = 'block';
+
+      try {
+        const card = await api.getCard(id);
+
+        // 填充编辑框
+        document.getElementById('update-card-question').value = card.question || '';
+        document.getElementById('update-card-answer').value = card.answer || '';
+
+        // 更新预览
+        updateCardPreview(card.question, card.answer);
+
+        // 重置为正面
+        showCardFront();
+
+        readEl.innerHTML = '<p class="success-msg">卡片已加载</p>';
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    // 翻转卡片按钮
+    document.getElementById('flip-card-btn').addEventListener('click', () => {
+      const front = document.getElementById('card-preview-front');
+      const back = document.getElementById('card-preview-back');
+      const btn = document.getElementById('flip-card-btn');
+
+      if (back.style.display === 'none') {
+        // 显示背面
+        front.style.display = 'none';
+        back.style.display = 'flex';
+        btn.textContent = '翻转查看问题';
+      } else {
+        // 显示正面
+        showCardFront();
+      }
+    });
+
+    // 显示卡片正面
+    function showCardFront() {
+      const front = document.getElementById('card-preview-front');
+      const back = document.getElementById('card-preview-back');
+      const btn = document.getElementById('flip-card-btn');
+
+      front.style.display = 'flex';
+      back.style.display = 'none';
+      btn.textContent = '翻转查看答案';
+    }
+
+    // 更新卡片预览
+    function updateCardPreview(question, answer) {
+      document.getElementById('card-preview-question').textContent = question || '（无问题）';
+      document.getElementById('card-preview-answer').textContent = answer || '（无答案）';
+    }
+
+    // 监听编辑框变化，实时更新预览
+    document.getElementById('update-card-question').addEventListener('input', () => {
+      const question = document.getElementById('update-card-question').value;
+      const answer = document.getElementById('update-card-answer').value;
+      updateCardPreview(question, answer);
+    });
+
+    document.getElementById('update-card-answer').addEventListener('input', () => {
+      const question = document.getElementById('update-card-question').value;
+      const answer = document.getElementById('update-card-answer').value;
+      updateCardPreview(question, answer);
+    });
+
+    document.getElementById('update-card-btn').addEventListener('click', async () => {
+      const id = document.getElementById('current-card-id').value;
+      const jsonEl = document.getElementById('update-card-body');
+      const useJson = jsonEl.style.display !== 'none' && jsonEl.value.trim();
+      const readEl = document.getElementById('card-mgmt-readable');
+      const advEl = document.getElementById('card-mgmt-advanced');
+      if (!id) { readEl.innerHTML = '<span style="color:var(--danger);">请选择或输入卡片 ID</span>'; readEl.style.display = 'block'; return; }
+      let body;
+      if (useJson) {
+        try {
+          body = JSON.parse(jsonEl.value);
+        } catch (err) {
+          readEl.innerHTML = '<span style="color:var(--danger);">JSON 格式错误</span>';
+          readEl.style.display = 'block';
+          return;
+        }
+      } else {
+        body = {
+          question: document.getElementById('update-card-question').value.trim() || undefined,
+          answer: document.getElementById('update-card-answer').value
+        };
+      }
+      readEl.innerHTML = '保存中…';
+      readEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        const res = await api.updateCard(id, body);
+        const d = res.data || {};
+        readEl.innerHTML = '<p class="success-msg">保存成功</p><div class="detail-row"><span class="detail-label">问题</span><span class="detail-value">' + esc(d.question || '') + '</span></div>';
+        advEl.style.display = 'block';
+        document.getElementById('card-mgmt-raw').textContent = JSON.stringify(res, null, 2);
+
+        // 更新预览
+        updateCardPreview(d.question, d.answer);
+        showCardFront();
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    document.getElementById('delete-card-btn').addEventListener('click', async () => {
+      const id = document.getElementById('current-card-id').value;
+      const readEl = document.getElementById('card-mgmt-readable');
+      const advEl = document.getElementById('card-mgmt-advanced');
+      if (!id) { readEl.innerHTML = '<span style="color:var(--danger);">请选择或输入卡片 ID</span>'; readEl.style.display = 'block'; return; }
+      if (!confirm('确定删除该卡片？')) return;
+      readEl.innerHTML = '删除中…';
+      readEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        await api.deleteCard(id);
+        readEl.innerHTML = '<p class="success-msg">删除成功</p>';
+        document.getElementById('current-card-id').value = '';
+        document.getElementById('review-card-id').value = '';
+
+        // 清理编辑框和预览
+        document.getElementById('update-card-question').value = '';
+        document.getElementById('update-card-answer').value = '';
+        updateCardPreview('', '');
+        showCardFront();
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+  </script>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById('nav-toggle');
+      var sidebar = document.getElementById('sidebar');
+      var overlay = document.getElementById('overlay');
+      function open() { sidebar.classList.add('open'); overlay.classList.add('open'); }
+      function close() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
+      toggle && toggle.addEventListener('click', open);
+      overlay && overlay.addEventListener('click', close);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>首页 - 笔记管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="common.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">
+      <a href="index.html">📒 笔记管理</a>
+    </div>
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="打开菜单">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <nav>
+      <ul>
+        <li><a href="index.html" class="active">首页</a></li>
+        <li><a href="notes.html">笔记</a></li>
+        <li><a href="cards.html">复习卡片</a></li>
+        <li><a href="categories.html">分类管理</a></li>
+        <li><a href="tools.html">工具</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="main-wrap">
+    <div class="page-header">
+      <h1>欢迎使用笔记管理</h1>
+      <p>上传笔记、搜索、生成复习卡片，从下方快捷入口开始。</p>
+    </div>
+
+    <div class="dash-cards">
+      <a href="notes.html#upload" class="dash-card">
+        <span class="icon">📤</span>
+        <span>上传笔记</span>
+        <small>上传图片并自动分类、提取关键词</small>
+      </a>
+      <a href="notes.html" class="dash-card">
+        <span class="icon">📋</span>
+        <span>浏览笔记</span>
+        <small>查看与搜索全部笔记</small>
+      </a>
+      <a href="cards.html" class="dash-card">
+        <span class="icon">🃏</span>
+        <span>复习卡片</span>
+        <small>生成卡片或开始复习</small>
+      </a>
+      <a href="categories.html" class="dash-card">
+        <span class="icon">📁</span>
+        <span>分类管理</span>
+        <small>管理笔记分类</small>
+      </a>
+      <a href="tools.html" class="dash-card">
+        <span class="icon">🔧</span>
+        <span>工具</span>
+        <small>OCR、搜索建议等</small>
+      </a>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById('nav-toggle');
+      var sidebar = document.getElementById('sidebar');
+      var overlay = document.getElementById('overlay');
+      function open() {
+        sidebar.classList.add('open');
+        overlay.classList.add('open');
+      }
+      function close() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('open');
+      }
+      toggle && toggle.addEventListener('click', open);
+      overlay && overlay.addEventListener('click', close);
+    })();
+  </script>
+</body>
+</html>

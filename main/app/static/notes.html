@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>笔记 - 笔记管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="common.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">
+      <a href="index.html">📒 笔记管理</a>
+    </div>
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="打开菜单">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <nav>
+      <ul>
+        <li><a href="index.html">首页</a></li>
+        <li><a href="notes.html" class="active">笔记</a></li>
+        <li><a href="cards.html">复习卡片</a></li>
+        <li><a href="categories.html">分类管理</a></li>
+        <li><a href="tools.html">工具</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="main-wrap">
+    <div class="page-header">
+      <h1>笔记</h1>
+      <p>上传新笔记、搜索与管理已有笔记。</p>
+    </div>
+
+    <section class="card" id="upload">
+      <h2>上传笔记</h2>
+      <form id="upload-form">
+        <div class="form-group">
+          <label>选择图片</label>
+          <input type="file" id="note-file" name="file" accept="image/*" required />
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="auto-classify" /> 自动分类
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="auto-keywords" /> 自动提取关键词
+          </label>
+        </div>
+        <div class="btn-group">
+          <button type="submit" class="btn btn-primary">上传</button>
+        </div>
+      </form>
+      <div id="upload-result" class="result-box" style="display:none;"></div>
+      <div id="upload-readable" class="result-readable" style="display:none;"></div>
+      <div id="upload-advanced" style="display:none;"><span class="advanced-toggle" data-target="upload-raw">▼ 查看原始响应</span><pre id="upload-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+
+    <section class="card">
+      <h2>笔记列表</h2>
+      <div class="form-group">
+        <label>搜索</label>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <input type="search" id="search-q" placeholder="关键词或标题" style="flex:1;min-width:160px;" />
+          <button type="button" id="search-btn" class="btn btn-primary">搜索</button>
+          <button type="button" id="view-all-btn" class="btn btn-secondary">全部笔记</button>
+        </div>
+      </div>
+      <div id="notes-table-container" class="table-wrap">
+        <p class="text-muted">点击「全部笔记」或输入关键词搜索以加载列表。</p>
+      </div>
+    </section>
+
+    <section class="card" id="note-actions">
+      <h2>笔记操作</h2>
+      <p class="text-muted mb-0 mt-1">在列表中点击某条笔记即可选中；选中后可查看详情或进行下列操作。</p>
+      <div class="form-group mt-2">
+        <label>当前笔记</label>
+        <input type="number" id="current-note-id" placeholder="点击上方列表中某条笔记，或在此输入笔记 ID" />
+        <span id="current-note-title" class="text-muted" style="font-size:0.85rem;"></span>
+      </div>
+      <div class="btn-group">
+        <button type="button" id="detail-btn" class="btn btn-secondary">查看详情</button>
+        <button type="button" id="important-btn" class="btn btn-secondary">切换重要状态</button>
+        <button type="button" id="classify-btn" class="btn btn-secondary">重新分类</button>
+        <button type="button" id="reprocess-btn" class="btn btn-secondary">重新 OCR</button>
+        <a href="cards.html" id="gen-cards-link" class="btn btn-primary">生成复习卡</a>
+      </div>
+      <div class="form-group mt-2">
+        <label>编辑笔记</label>
+        <input type="text" id="update-note-title" placeholder="标题" />
+
+        <div class="editor-wrapper">
+          <div class="editor-toolbar">
+            <span class="editor-stats">字数: <span id="char-count">0</span> | 行数: <span id="line-count">0</span></span>
+            <div class="editor-actions">
+              <button type="button" id="find-replace-toggle" class="btn btn-sm btn-secondary">查找/替换</button>
+              <button type="button" id="toggle-image-preview" class="btn btn-sm btn-secondary">显示原图</button>
+            </div>
+          </div>
+
+          <div class="editor-container">
+            <div class="image-preview-panel" id="image-preview-panel" style="display:none;">
+              <div class="image-preview-placeholder" id="image-loading">加载中...</div>
+              <img id="note-image-preview" src="" alt="笔记原图" style="display:none;" />
+              <span class="image-preview-label">原图对照</span>
+            </div>
+
+            <div class="editor-main">
+              <textarea id="update-note-content" placeholder="正文内容 - 支持 Tab 缩进&#10;按 Ctrl+Enter 快速保存&#10;可按右下角拖拽调整大小"></textarea>
+
+              <div class="find-replace-panel" id="find-replace-panel" style="display:none;">
+                <div class="find-replace-row">
+                  <input type="text" id="find-text" placeholder="查找内容" />
+                  <input type="text" id="replace-text" placeholder="替换为" />
+                  <div class="find-replace-btns">
+                    <button type="button" id="find-next-btn" class="btn btn-sm btn-secondary">查找下一个</button>
+                    <button type="button" id="replace-btn" class="btn btn-sm btn-secondary">替换</button>
+                    <button type="button" id="replace-all-btn" class="btn btn-sm btn-secondary">全部替换</button>
+                    <span id="find-status" class="find-status"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button type="button" id="update-btn" class="btn btn-secondary">保存 (Ctrl+Enter)</button>
+          <button type="button" id="delete-btn" class="btn btn-danger">删除笔记</button>
+        </div>
+        <span class="advanced-toggle mt-1" data-target="update-note-body">▼ 高级：JSON 编辑</span>
+        <textarea id="update-note-body" class="raw-json mt-1" rows="3" placeholder='{"title":"新标题","content":"..."}' style="display:none;"></textarea>
+      </div>
+      <div class="form-group">
+        <label>关键词</label>
+        <p class="text-muted mb-0" style="font-size:0.85rem;">根据笔记内容重新提取关键词（覆盖现有关键词）</p>
+        <div class="btn-group mt-1">
+          <button type="button" id="keywords-btn" class="btn btn-secondary">重新提取关键词</button>
+        </div>
+      </div>
+      <div id="note-action-readable" class="result-readable" style="display:none;"></div>
+      <div id="note-action-advanced" style="display:none;"><span class="advanced-toggle" data-target="note-action-raw">▼ 查看原始响应</span><pre id="note-action-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from './api.js';
+
+    function showResult(el, text) {
+      el.textContent = text;
+      el.style.display = text ? 'block' : 'none';
+    }
+
+    function getActionResultEl() {
+      return document.getElementById('note-action-readable');
+    }
+
+    function getNoteId() {
+      return document.getElementById('current-note-id').value;
+    }
+
+    function showNoteActionReadable(html, rawJson) {
+      const r = document.getElementById('note-action-readable');
+      const adv = document.getElementById('note-action-advanced');
+      const raw = document.getElementById('note-action-raw');
+      r.innerHTML = html;
+      r.style.display = 'block';
+      if (raw && rawJson != null) {
+        raw.textContent = typeof rawJson === 'string' ? rawJson : JSON.stringify(rawJson, null, 2);
+        if (adv) adv.style.display = 'block';
+      }
+    }
+
+    function showNoteActionError(msg) {
+      const r = document.getElementById('note-action-readable');
+      r.innerHTML = '<span style="color:var(--danger);">' + (msg + '').replace(/</g, '&lt;') + '</span>';
+      r.style.display = 'block';
+      document.getElementById('note-action-advanced').style.display = 'none';
+    }
+
+    document.body.addEventListener('click', function (e) {
+      const t = e.target.closest('.advanced-toggle');
+      if (!t) return;
+      const id = t.getAttribute('data-target');
+      const el = document.getElementById(id);
+      if (!el) return;
+      e.preventDefault();
+      const show = el.style.display === 'none';
+      el.style.display = show ? 'block' : 'none';
+      const closedText = id === 'update-note-body' ? '▼ 高级：JSON 编辑' : '▼ 查看原始响应';
+      t.textContent = show ? '▲ 收起' : closedText;
+    });
+
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('note-file');
+      const resEl = document.getElementById('upload-result');
+      if (!fileInput.files.length) return;
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      formData.append('auto_classify', document.getElementById('auto-classify').checked);
+      formData.append('auto_keywords', document.getElementById('auto-keywords').checked);
+      resEl.textContent = '上传中…';
+      resEl.style.display = 'block';
+      document.getElementById('upload-readable').style.display = 'none';
+      document.getElementById('upload-advanced').style.display = 'none';
+      try {
+        const res = await api.uploadNote(formData);
+        resEl.style.display = 'none';
+        const d = res.data || {};
+        const catName = d.category ? d.category.name : '未分类';
+        const kw = (d.keywords || []).join('、') || '无';
+        const created = d.created_at ? d.created_at.slice(0, 10) : '';
+        const readEl = document.getElementById('upload-readable');
+        readEl.innerHTML = '<p class="success-msg">上传成功</p><div class="detail-row"><span class="detail-label">标题</span><span class="detail-value">' + (d.title || '').replace(/</g, '&lt;') + '</span></div><div class="detail-row"><span class="detail-label">分类</span><span class="detail-value">' + (catName + '').replace(/</g, '&lt;') + '</span></div><div class="detail-row"><span class="detail-label">关键词</span><span class="detail-value">' + (kw + '').replace(/</g, '&lt;') + '</span></div><div class="detail-row"><span class="detail-label">创建时间</span><span class="detail-value">' + (created + '').replace(/</g, '&lt;') + '</span></div>';
+        readEl.style.display = 'block';
+        const advEl = document.getElementById('upload-advanced');
+        advEl.style.display = 'block';
+        document.getElementById('upload-raw').textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        resEl.style.display = 'none';
+        document.getElementById('upload-readable').innerHTML = '<span style="color:var(--danger);">错误: ' + (err + '').replace(/</g, '&lt;') + '</span>';
+        document.getElementById('upload-readable').style.display = 'block';
+      }
+    });
+
+    function renderNotesTable(notes) {
+      if (!notes || !notes.length) return '<p class="text-muted">未找到笔记。</p>';
+      let html = '<table><thead><tr><th>ID</th><th>标题</th><th>预览</th><th>分类</th><th>关键词</th><th>重要</th><th>创建时间</th></tr></thead><tbody>';
+      for (const n of notes) {
+        const preview = (n.content_preview || '').slice(0, 50);
+        const title = (n.title || '-').replace(/"/g, '&quot;');
+        html += `<tr data-note-id="${n.id}" data-note-title="${title}" role="button" tabindex="0">
+          <td>${n.id}</td>
+          <td>${n.title || '-'}</td>
+          <td>${preview}${(n.content_preview || '').length > 50 ? '…' : ''}</td>
+          <td>${n.category ? n.category.name : '-'}</td>
+          <td>${(n.keywords || []).join(', ') || '-'}</td>
+          <td>${n.is_important ? '⭐' : '-'}</td>
+          <td>${n.created_at ? n.created_at.split('T')[0] : '-'}</td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+      return html;
+    }
+
+    const notesTableContainer = document.getElementById('notes-table-container');
+    const currentNoteIdInput = document.getElementById('current-note-id');
+
+    notesTableContainer.addEventListener('click', (e) => {
+      const row = e.target.closest('tr[data-note-id]');
+      if (row) {
+        currentNoteIdInput.value = row.dataset.noteId;
+        const titleEl = document.getElementById('current-note-title');
+        if (titleEl) titleEl.textContent = row.dataset.noteTitle ? '已选：' + row.dataset.noteTitle.replace(/&quot;/g, '"') : '';
+      }
+    });
+
+    notesTableContainer.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const row = e.target.closest('tr[data-note-id]');
+      if (row) {
+        e.preventDefault();
+        currentNoteIdInput.value = row.dataset.noteId;
+      }
+    });
+
+    document.getElementById('view-all-btn').addEventListener('click', async () => {
+      notesTableContainer.innerHTML = '<p>加载中…</p>';
+      try {
+        const data = await api.getNotes({ page: 1, page_size: 100 });
+        notesTableContainer.innerHTML = renderNotesTable(data.items || []);
+      } catch (err) {
+        notesTableContainer.innerHTML = '<p class="text-muted">错误: ' + err + '</p>';
+      }
+    });
+
+    document.getElementById('search-btn').addEventListener('click', async () => {
+      const q = document.getElementById('search-q').value;
+      notesTableContainer.innerHTML = '<p>搜索中…</p>';
+      try {
+        const data = await api.searchNotes({ q });
+        const items = data && data.items ? data.items : [];
+        notesTableContainer.innerHTML = renderNotesTable(items);
+      } catch (err) {
+        notesTableContainer.innerHTML = '<p class="text-muted">错误: ' + err + '</p>';
+      }
+    });
+
+    document.getElementById('important-btn').addEventListener('click', async () => {
+      const id = getNoteId();
+      if (!id) { showNoteActionError('请先选择或输入笔记'); return; }
+      document.getElementById('note-action-readable').innerHTML = '更新中…';
+      document.getElementById('note-action-readable').style.display = 'block';
+      try {
+        const res = await api.markImportant(id);
+        const d = res.data || {};
+        const msg = d.is_important ? '已设为重要' : '已取消重要';
+        showNoteActionReadable('<p class="success-msg">' + msg + '</p>', res);
+      } catch (err) {
+        showNoteActionError('错误: ' + err);
+      }
+    });
+
+    document.getElementById('classify-btn').addEventListener('click', async () => {
+      const id = getNoteId();
+      if (!id) { showNoteActionError('请先选择或输入笔记'); return; }
+      document.getElementById('note-action-readable').innerHTML = '分类中…';
+      document.getElementById('note-action-readable').style.display = 'block';
+      try {
+        const res = await api.classifyNote(id);
+        const d = res.data || {};
+        const catName = d.category ? d.category.name : '未匹配到分类';
+        showNoteActionReadable('<p class="success-msg">分类完成</p><div class="detail-row"><span class="detail-label">当前分类</span><span class="detail-value">' + (catName + '').replace(/</g, '&lt;') + '</span></div>', res);
+      } catch (err) {
+        showNoteActionError('错误: ' + err);
+      }
+    });
+
+    document.getElementById('reprocess-btn').addEventListener('click', async () => {
+      const id = getNoteId();
+      if (!id) { showNoteActionError('请先选择或输入笔记'); return; }
+      document.getElementById('note-action-readable').innerHTML = '处理中…';
+      document.getElementById('note-action-readable').style.display = 'block';
+      try {
+        const res = await api.reprocessNote(id);
+        const d = res.data || {};
+        const conf = d.ocr_confidence != null ? (d.ocr_confidence * 100).toFixed(1) + '%' : '-';
+        const contentPreview = (d.content || '').slice(0, 200);
+        showNoteActionReadable('<p class="success-msg">重新处理完成</p><div class="detail-row"><span class="detail-label">置信度</span><span class="detail-value">' + conf + '</span></div><div class="detail-row"><span class="detail-label">识别内容预览</span><div class="detail-value content-block">' + (contentPreview + '').replace(/</g, '&lt;') + '</div></div>', res);
+      } catch (err) {
+        showNoteActionError('错误: ' + err);
+      }
+    });
+
+    document.getElementById('update-btn').addEventListener('click', async () => {
+      const id = getNoteId();
+      if (!id) { showNoteActionError('请先选择或输入笔记'); return; }
+      const jsonEl = document.getElementById('update-note-body');
+      const useJson = jsonEl.style.display !== 'none' && jsonEl.value.trim();
+      let body;
+      if (useJson) {
+        try {
+          body = JSON.parse(jsonEl.value);
+        } catch (err) {
+          showNoteActionError('JSON 格式错误: ' + err);
+          return;
+        }
+      } else {
+        body = {
+          title: document.getElementById('update-note-title').value.trim() || undefined,
+          content: document.getElementById('update-note-content').value
+        };
+      }
+      document.getElementById('note-action-readable').innerHTML = '保存中…';
+      document.getElementById('note-action-readable').style.display = 'block';
+      try {
+        const res = await api.updateNote(id, body);
+        const d = res.data || {};
+        showNoteActionReadable('<p class="success-msg">保存成功</p><div class="detail-row"><span class="detail-label">标题</span><span class="detail-value">' + (d.title || '').replace(/</g, '&lt;') + '</span></div>', res);
+        // 更新字数统计
+        updateStats();
+      } catch (err) {
+        showNoteActionError('错误: ' + err);
+      }
+    });
+
+    document.getElementById('delete-btn').addEventListener('click', async () => {
+      const id = getNoteId();
+      if (!id) { showNoteActionError('请先选择或输入笔记'); return; }
+      if (!confirm('确定删除该笔记？')) return;
+      document.getElementById('note-action-readable').innerHTML = '删除中…';
+      document.getElementById('note-action-readable').style.display = 'block';
+      try {
+        await api.deleteNote(id);
+        showNoteActionReadable('<p class="success-msg">删除成功</p>', null);
+        document.getElementById('note-action-advanced').style.display = 'none';
+        document.getElementById('current-note-id').value = '';
+        document.getElementById('current-note-title').textContent = '';
+        // 清理编辑器
+        document.getElementById('update-note-title').value = '';
+        document.getElementById('update-note-content').value = '';
+        updateStats();
+        // 清理图片预览
+        imagePreviewPanel.style.display = 'none';
+        toggleImageBtn.textContent = '显示原图';
+        toggleImageBtn.classList.remove('btn-primary');
+        toggleImageBtn.classList.add('btn-secondary');
+        noteImagePreview.src = '';
+        currentNoteImagePath = '';
+      } catch (err) {
+        showNoteActionError('错误: ' + err);
+      }
+    });
+
+    document.getElementById('keywords-btn').addEventListener('click', async () => {
+      const id = getNoteId();
+      if (!id) { showNoteActionError('请先选择或输入笔记'); return; }
+      document.getElementById('note-action-readable').innerHTML = '提取中…';
+      document.getElementById('note-action-readable').style.display = 'block';
+      try {
+        const res = await api.extractKeywords(id);
+        const d = res.data || {};
+        const kw = (d.keywords || []).length ? (d.keywords || []).join('、') : '无';
+        showNoteActionReadable('<p class="success-msg">已根据内容重新提取关键词</p><div class="detail-row"><span class="detail-label">关键词</span><span class="detail-value">' + (kw + '').replace(/</g, '&lt;') + '</span></div>', res);
+      } catch (err) {
+        showNoteActionError('错误: ' + err);
+      }
+    });
+
+    document.getElementById('gen-cards-link').addEventListener('click', (e) => {
+      const id = getNoteId();
+      if (id) {
+        e.preventDefault();
+        window.location.href = 'cards.html?generate=' + id;
+      }
+    });
+
+    // ========== 编辑器增强功能 ==========
+    const contentTextarea = document.getElementById('update-note-content');
+    const charCountEl = document.getElementById('char-count');
+    const lineCountEl = document.getElementById('line-count');
+    const imagePreviewPanel = document.getElementById('image-preview-panel');
+    const noteImagePreview = document.getElementById('note-image-preview');
+    const toggleImageBtn = document.getElementById('toggle-image-preview');
+    const findReplacePanel = document.getElementById('find-replace-panel');
+    const findReplaceToggle = document.getElementById('find-replace-toggle');
+
+    // 当前笔记的图片路径缓存
+    let currentNoteImagePath = '';
+
+    // 更新字数统计
+    function updateStats() {
+      const text = contentTextarea.value;
+      charCountEl.textContent = text.length;
+      lineCountEl.textContent = text ? text.split('\n').length : 0;
+    }
+
+    contentTextarea.addEventListener('input', updateStats);
+
+    // Tab 键支持缩进
+    contentTextarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = contentTextarea.selectionStart;
+        const end = contentTextarea.selectionEnd;
+        const value = contentTextarea.value;
+
+        if (e.shiftKey) {
+          // Shift+Tab: 减少缩进
+          const before = value.substring(0, start);
+          const after = value.substring(end);
+          const lineStart = before.lastIndexOf('\n') + 1;
+          const currentLine = before.substring(lineStart);
+          if (currentLine.startsWith('  ')) {
+            contentTextarea.value = before.substring(0, lineStart) + currentLine.substring(2) + after;
+            contentTextarea.selectionStart = contentTextarea.selectionEnd = start - 2;
+          } else if (currentLine.startsWith(' ')) {
+            contentTextarea.value = before.substring(0, lineStart) + currentLine.substring(1) + after;
+            contentTextarea.selectionStart = contentTextarea.selectionEnd = start - 1;
+          }
+        } else {
+          // Tab: 增加缩进
+          contentTextarea.value = value.substring(0, start) + '  ' + value.substring(end);
+          contentTextarea.selectionStart = contentTextarea.selectionEnd = start + 2;
+        }
+        updateStats();
+      }
+
+      // Ctrl+Enter 快速保存
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        document.getElementById('update-btn').click();
+      }
+    });
+
+    // 切换原图预览
+    toggleImageBtn.addEventListener('click', () => {
+      const isVisible = imagePreviewPanel.style.display !== 'none';
+      if (isVisible) {
+        imagePreviewPanel.style.display = 'none';
+        toggleImageBtn.textContent = '显示原图';
+        toggleImageBtn.classList.remove('btn-primary');
+        toggleImageBtn.classList.add('btn-secondary');
+      } else {
+        imagePreviewPanel.style.display = 'flex';
+        toggleImageBtn.textContent = '隐藏原图';
+        toggleImageBtn.classList.remove('btn-secondary');
+        toggleImageBtn.classList.add('btn-primary');
+
+        // 如果没有图片路径，显示提示
+        const currentNoteId = getNoteId();
+        if (!currentNoteId) {
+          document.getElementById('image-loading').textContent = '请先选择笔记';
+          document.getElementById('image-loading').style.display = 'flex';
+          noteImagePreview.style.display = 'none';
+        }
+      }
+    });
+
+    // 切换查找替换面板
+    findReplaceToggle.addEventListener('click', () => {
+      const isVisible = findReplacePanel.style.display !== 'none';
+      findReplacePanel.style.display = isVisible ? 'none' : 'block';
+      findReplaceToggle.textContent = isVisible ? '查找/替换' : '收起';
+      if (!isVisible) {
+        document.getElementById('find-text').focus();
+      }
+    });
+
+    // 查找下一个
+    let lastFindIndex = -1;
+    document.getElementById('find-next-btn').addEventListener('click', () => {
+      const findText = document.getElementById('find-text').value;
+      const statusEl = document.getElementById('find-status');
+
+      if (!findText) {
+        statusEl.textContent = '请输入查找内容';
+        statusEl.className = 'find-status not-found';
+        return;
+      }
+
+      const content = contentTextarea.value;
+      const startIndex = lastFindIndex + 1;
+      const index = content.indexOf(findText, startIndex);
+
+      if (index !== -1) {
+        contentTextarea.focus();
+        contentTextarea.setSelectionRange(index, index + findText.length);
+        lastFindIndex = index;
+        statusEl.textContent = `找到: 位置 ${index}`;
+        statusEl.className = 'find-status found';
+      } else {
+        // 从头开始查找
+        const wrapIndex = content.indexOf(findText, 0);
+        if (wrapIndex !== -1) {
+          contentTextarea.focus();
+          contentTextarea.setSelectionRange(wrapIndex, wrapIndex + findText.length);
+          lastFindIndex = wrapIndex;
+          statusEl.textContent = `找到: 位置 ${wrapIndex} (从头)`;
+          statusEl.className = 'find-status found';
+        } else {
+          statusEl.textContent = '未找到';
+          statusEl.className = 'find-status not-found';
+          lastFindIndex = -1;
+        }
+      }
+    });
+
+    // 替换
+    document.getElementById('replace-btn').addEventListener('click', () => {
+      const findText = document.getElementById('find-text').value;
+      const replaceText = document.getElementById('replace-text').value;
+      const statusEl = document.getElementById('find-status');
+
+      if (!findText) {
+        statusEl.textContent = '请输入查找内容';
+        statusEl.className = 'find-status not-found';
+        return;
+      }
+
+      const start = contentTextarea.selectionStart;
+      const end = contentTextarea.selectionEnd;
+      const selectedText = contentTextarea.value.substring(start, end);
+
+      if (selectedText === findText) {
+        contentTextarea.setRangeText(replaceText);
+        statusEl.textContent = '已替换';
+        statusEl.className = 'find-status found';
+        updateStats();
+        // 查找下一个
+        document.getElementById('find-next-btn').click();
+      } else {
+        // 先查找
+        document.getElementById('find-next-btn').click();
+      }
+    });
+
+    // 全部替换
+    document.getElementById('replace-all-btn').addEventListener('click', () => {
+      const findText = document.getElementById('find-text').value;
+      const replaceText = document.getElementById('replace-text').value;
+      const statusEl = document.getElementById('find-status');
+
+      if (!findText) {
+        statusEl.textContent = '请输入查找内容';
+        statusEl.className = 'find-status not-found';
+        return;
+      }
+
+      const content = contentTextarea.value;
+      const count = (content.match(new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+
+      if (count === 0) {
+        statusEl.textContent = '未找到匹配内容';
+        statusEl.className = 'find-status not-found';
+        return;
+      }
+
+      contentTextarea.value = content.split(findText).join(replaceText);
+      statusEl.textContent = `已替换 ${count} 处`;
+      statusEl.className = 'find-status found';
+      lastFindIndex = -1;
+      updateStats();
+    });
+
+    // 修改查看详情按钮，加载图片
+    const originalDetailBtn = document.getElementById('detail-btn');
+    originalDetailBtn.addEventListener('click', async () => {
+      const id = getNoteId();
+      if (!id) { showNoteActionError('请先选择或输入笔记'); return; }
+      document.getElementById('note-action-readable').innerHTML = '加载中…';
+      document.getElementById('note-action-readable').style.display = 'block';
+      try {
+        const data = await api.getNote(id);
+        document.getElementById('current-note-title').textContent = data.title ? '已选：' + data.title : '';
+        document.getElementById('update-note-title').value = data.title || '';
+        document.getElementById('update-note-content').value = data.content || '';
+
+        // 加载图片预览
+        const imageLoading = document.getElementById('image-loading');
+        if (data.image_path) {
+          currentNoteImagePath = data.image_path;
+          imageLoading.style.display = 'flex';
+          imageLoading.textContent = '加载中...';
+          noteImagePreview.style.display = 'none';
+
+          // 构建图片URL
+          const imageUrl = `/api/notes/${id}/image`;
+          noteImagePreview.src = imageUrl;
+
+          noteImagePreview.onload = () => {
+            imageLoading.style.display = 'none';
+            noteImagePreview.style.display = 'block';
+          };
+
+          noteImagePreview.onerror = () => {
+            imageLoading.textContent = '图片加载失败';
+            noteImagePreview.style.display = 'none';
+            console.error('图片加载失败:', imageUrl);
+          };
+        } else {
+          currentNoteImagePath = '';
+          imageLoading.textContent = '无图片';
+          imageLoading.style.display = 'flex';
+          noteImagePreview.style.display = 'none';
+          noteImagePreview.src = '';
+        }
+
+        updateStats();
+
+        const catName = data.category ? data.category.name : '未分类';
+        const kw = (data.keywords || []).length ? (data.keywords || []).join('、') : '无';
+        const created = data.created_at ? data.created_at.slice(0, 19).replace('T', ' ') : '';
+        const updated = data.updated_at ? data.updated_at.slice(0, 19).replace('T', ' ') : '';
+        const contentEsc = (data.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const html = '<div class="detail-row"><span class="detail-label">标题</span><span class="detail-value">' + (data.title || '').replace(/</g, '&lt;') + '</span></div><div class="detail-row"><span class="detail-label">分类</span><span class="detail-value">' + (catName + '').replace(/</g, '&lt;') + '</span></div><div class="detail-row"><span class="detail-label">关键词</span><span class="detail-value">' + (kw + '').replace(/</g, '&lt;') + '</span></div><div class="detail-row"><span class="detail-label">重要</span><span class="detail-value">' + (data.is_important ? '是' : '否') + '</span></div><div class="detail-row"><span class="detail-label">状态</span><span class="detail-value">' + (data.status || '') + '</span></div><div class="detail-row"><span class="detail-label">创建</span><span class="detail-value">' + created + '</span></div><div class="detail-row"><span class="detail-label">更新</span><span class="detail-value">' + updated + '</span></div><div class="detail-row"><span class="detail-label">正文</span><div class="detail-value content-block">' + contentEsc + '</div></div>';
+        showNoteActionReadable(html, data);
+      } catch (err) {
+        showNoteActionError('错误: ' + err);
+      }
+    });
+  </script>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById('nav-toggle');
+      var sidebar = document.getElementById('sidebar');
+      var overlay = document.getElementById('overlay');
+      function open() { sidebar.classList.add('open'); overlay.classList.add('open'); }
+      function close() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
+      toggle && toggle.addEventListener('click', open);
+      overlay && overlay.addEventListener('click', close);
+    })();
+  </script>
+</body>
+</html>

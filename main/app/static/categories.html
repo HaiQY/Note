@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>分类管理 - 笔记管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="common.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">
+      <a href="index.html">📒 笔记管理</a>
+    </div>
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="打开菜单">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <nav>
+      <ul>
+        <li><a href="index.html">首页</a></li>
+        <li><a href="notes.html">笔记</a></li>
+        <li><a href="cards.html">复习卡片</a></li>
+        <li><a href="categories.html" class="active">分类管理</a></li>
+        <li><a href="tools.html">工具</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="main-wrap">
+    <div class="page-header">
+      <h1>分类管理</h1>
+      <p>创建、修改与删除笔记分类；获取分类列表。</p>
+    </div>
+
+    <section class="card">
+      <h2>分类列表</h2>
+      <p class="text-muted mb-0 mt-1">加载后可在下方「更新」或「删除」中选择分类（按名称）。</p>
+      <div class="btn-group mt-1">
+        <button type="button" id="categories-btn" class="btn btn-secondary">加载全部分类</button>
+      </div>
+      <div id="categories-list" class="mt-2" style="display:none;"></div>
+      <div id="categories-advanced" style="display:none;"><span class="advanced-toggle" data-target="categories-raw">▼ 查看原始响应</span><pre id="categories-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+
+    <section class="card">
+      <h2>新建分类</h2>
+      <div class="form-group">
+        <label>分类名称</label>
+        <input type="text" id="create-cat-name" placeholder="如：数学、英语" required />
+      </div>
+      <div class="form-group">
+        <label>描述（可选）</label>
+        <input type="text" id="create-cat-desc" placeholder="简短说明" />
+      </div>
+      <div class="form-group">
+        <label>关键词（逗号分隔，用于自动分类）</label>
+        <input type="text" id="create-cat-keywords" placeholder="如：数学, 函数, 方程" />
+      </div>
+      <div class="form-group">
+        <label>颜色（可选）</label>
+        <input type="color" id="create-cat-color" value="#3498db" style="width:4rem;height:2rem;" />
+      </div>
+      <div class="btn-group">
+        <button type="button" id="create-cat-btn" class="btn btn-primary">创建</button>
+      </div>
+      <div id="create-cat-readable" class="result-readable" style="display:none;"></div>
+      <div id="create-cat-advanced" style="display:none;"><span class="advanced-toggle" data-target="create-cat-raw">▼ 查看原始响应</span><pre id="create-cat-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+
+    <section class="card">
+      <h2>更新分类</h2>
+      <div class="form-group">
+        <label>选择分类</label>
+        <select id="update-cat-id">
+          <option value="">请先加载分类列表</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>新名称</label>
+        <input type="text" id="update-cat-name" placeholder="分类名称" />
+      </div>
+      <div class="form-group">
+        <label>描述（可选）</label>
+        <input type="text" id="update-cat-desc" placeholder="简短说明" />
+      </div>
+      <div class="form-group">
+        <label>关键词（逗号分隔）</label>
+        <input type="text" id="update-cat-keywords" placeholder="如：关键词1, 关键词2" />
+      </div>
+      <div class="btn-group">
+        <button type="button" id="update-cat-btn" class="btn btn-secondary">更新</button>
+      </div>
+      <div id="update-cat-readable" class="result-readable" style="display:none;"></div>
+      <div id="update-cat-advanced" style="display:none;"><span class="advanced-toggle" data-target="update-cat-raw">▼ 查看原始响应</span><pre id="update-cat-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+
+    <section class="card">
+      <h2>删除分类</h2>
+      <div class="form-group">
+        <label>选择分类</label>
+        <select id="delete-cat-id">
+          <option value="">请先加载分类列表</option>
+        </select>
+      </div>
+      <div class="btn-group">
+        <button type="button" id="delete-cat-btn" class="btn btn-danger">删除</button>
+      </div>
+      <div id="delete-cat-readable" class="result-readable" style="display:none;"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from './api.js';
+
+    function esc(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    document.body.addEventListener('click', function (e) {
+      const t = e.target.closest('.advanced-toggle');
+      if (!t) return;
+      const id = t.getAttribute('data-target');
+      const el = document.getElementById(id);
+      if (!el) return;
+      e.preventDefault();
+      const show = el.style.display === 'none';
+      el.style.display = show ? 'block' : 'none';
+      t.textContent = show ? '▲ 收起' : '▼ 查看原始响应';
+    });
+
+    let categoriesCache = [];
+
+    function fillCategorySelects() {
+      const opts = categoriesCache.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+      document.getElementById('update-cat-id').innerHTML = '<option value="">选择分类</option>' + opts;
+      document.getElementById('delete-cat-id').innerHTML = '<option value="">选择分类</option>' + opts;
+    }
+
+    document.getElementById('categories-btn').addEventListener('click', async () => {
+      const listEl = document.getElementById('categories-list');
+      const advEl = document.getElementById('categories-advanced');
+      listEl.innerHTML = '加载中…';
+      listEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        const res = await api.getCategories();
+        const data = Array.isArray(res.data) ? res.data : (res.data && res.data.items) ? res.data.items : [];
+        categoriesCache = data;
+        fillCategorySelects();
+        if (!data.length) {
+          listEl.innerHTML = '<p class="text-muted">暂无分类。</p>';
+        } else {
+          let html = '<div class="tag-list" style="flex-direction:column;gap:0.75rem;">';
+          data.forEach(c => {
+            const kw = (c.keywords || []).join('、') || '无';
+            html += '<div class="result-readable"><div class="detail-row"><span class="detail-label">名称</span><span class="detail-value">' + esc(c.name) + '</span></div><div class="detail-row"><span class="detail-label">描述</span><span class="detail-value">' + esc(c.description || '-') + '</span></div><div class="detail-row"><span class="detail-label">关键词</span><span class="detail-value">' + esc(kw) + '</span></div></div>';
+          });
+          html += '</div>';
+          listEl.innerHTML = html;
+        }
+        advEl.style.display = 'block';
+        document.getElementById('categories-raw').textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        listEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    document.getElementById('create-cat-btn').addEventListener('click', async () => {
+      const name = document.getElementById('create-cat-name').value.trim();
+      const readEl = document.getElementById('create-cat-readable');
+      const advEl = document.getElementById('create-cat-advanced');
+      if (!name) { readEl.innerHTML = '<span style="color:var(--danger);">请输入分类名称</span>'; readEl.style.display = 'block'; return; }
+      const keywordsStr = document.getElementById('create-cat-keywords').value.trim();
+      const keywords = keywordsStr ? keywordsStr.split(/[,，]/).map(s => s.trim()).filter(Boolean) : [];
+      const body = {
+        name,
+        description: document.getElementById('create-cat-desc').value.trim() || undefined,
+        keywords: keywords.length ? keywords : undefined,
+        color: document.getElementById('create-cat-color').value
+      };
+      readEl.innerHTML = '创建中…';
+      readEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        const res = await api.createCategory(body);
+        const d = res.data || {};
+        readEl.innerHTML = '<p class="success-msg">' + (res.message || '创建成功') + '</p><div class="detail-row"><span class="detail-label">名称</span><span class="detail-value">' + esc(d.name || name) + '</span></div>';
+        advEl.style.display = 'block';
+        document.getElementById('create-cat-raw').textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    document.getElementById('update-cat-btn').addEventListener('click', async () => {
+      const id = document.getElementById('update-cat-id').value;
+      const readEl = document.getElementById('update-cat-readable');
+      const advEl = document.getElementById('update-cat-advanced');
+      if (!id) { readEl.innerHTML = '<span style="color:var(--danger);">请选择要更新的分类</span>'; readEl.style.display = 'block'; return; }
+      const keywordsStr = document.getElementById('update-cat-keywords').value.trim();
+      const keywords = keywordsStr ? keywordsStr.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined;
+      const body = {
+        name: document.getElementById('update-cat-name').value.trim() || undefined,
+        description: document.getElementById('update-cat-desc').value.trim() || undefined,
+        keywords
+      };
+      if (!body.name && !body.description && keywords === undefined) {
+        readEl.innerHTML = '<span style="color:var(--danger);">请至少填写一项</span>';
+        readEl.style.display = 'block';
+        return;
+      }
+      readEl.innerHTML = '更新中…';
+      readEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        const res = await api.updateCategory(id, body);
+        const d = res.data || {};
+        readEl.innerHTML = '<p class="success-msg">' + (res.message || '更新成功') + '</p><div class="detail-row"><span class="detail-label">名称</span><span class="detail-value">' + esc(d.name || '') + '</span></div>';
+        advEl.style.display = 'block';
+        document.getElementById('update-cat-raw').textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    document.getElementById('delete-cat-btn').addEventListener('click', async () => {
+      const id = document.getElementById('delete-cat-id').value;
+      const readEl = document.getElementById('delete-cat-readable');
+      if (!id) { readEl.innerHTML = '<span style="color:var(--danger);">请选择要删除的分类</span>'; readEl.style.display = 'block'; return; }
+      if (!confirm('确定删除该分类？')) return;
+      readEl.innerHTML = '删除中…';
+      readEl.style.display = 'block';
+      try {
+        await api.deleteCategory(id);
+        readEl.innerHTML = '<p class="success-msg">删除成功</p>';
+        categoriesCache = categoriesCache.filter(c => String(c.id) !== String(id));
+        fillCategorySelects();
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    document.getElementById('update-cat-id').addEventListener('change', function () {
+      const id = this.value;
+      const cat = categoriesCache.find(c => String(c.id) === id);
+      if (cat) {
+        document.getElementById('update-cat-name').value = cat.name || '';
+        document.getElementById('update-cat-desc').value = cat.description || '';
+        document.getElementById('update-cat-keywords').value = (cat.keywords || []).join(', ');
+      }
+    });
+  </script>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById('nav-toggle');
+      var sidebar = document.getElementById('sidebar');
+      var overlay = document.getElementById('overlay');
+      function open() { sidebar.classList.add('open'); overlay.classList.add('open'); }
+      function close() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
+      toggle && toggle.addEventListener('click', open);
+      overlay && overlay.addEventListener('click', close);
+    })();
+  </script>
+</body>
+</html>

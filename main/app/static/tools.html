@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工具 - 笔记管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="common.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">
+      <a href="index.html">📒 笔记管理</a>
+    </div>
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="打开菜单">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <nav>
+      <ul>
+        <li><a href="index.html">首页</a></li>
+        <li><a href="notes.html">笔记</a></li>
+        <li><a href="cards.html">复习卡片</a></li>
+        <li><a href="categories.html">分类管理</a></li>
+        <li><a href="tools.html" class="active">工具</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="main-wrap">
+    <div class="page-header">
+      <h1>工具</h1>
+      <p>OCR 识别、批量处理与搜索建议等。</p>
+    </div>
+
+    <section class="card">
+      <h2>OCR 单张识别</h2>
+      <p class="text-muted mb-0 mt-1">上传一张图片，直接返回识别出的文字（不保存为笔记）。</p>
+      <div class="form-group mt-2">
+        <label>选择图片</label>
+        <input type="file" id="ocr-file" accept="image/*" />
+      </div>
+      <div class="btn-group">
+        <button type="button" id="ocr-process-btn" class="btn btn-primary">识别</button>
+      </div>
+      <div id="ocr-readable" class="result-readable" style="display:none;"></div>
+      <div id="ocr-advanced" style="display:none;"><span class="advanced-toggle" data-target="ocr-raw">▼ 查看原始响应</span><pre id="ocr-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+
+    <section class="card">
+      <h2>OCR 批量识别</h2>
+      <p class="text-muted mb-0 mt-1">选择多张图片提交后返回任务 ID，可用于查询进度（若后端支持）。</p>
+      <div class="form-group mt-2">
+        <label>选择多张图片</label>
+        <input type="file" id="ocr-batch-files" accept="image/*" multiple />
+      </div>
+      <div class="btn-group">
+        <button type="button" id="ocr-batch-btn" class="btn btn-primary">批量识别</button>
+      </div>
+      <div id="ocr-batch-result" class="result-box" style="display:none;"></div>
+    </section>
+
+    <section class="card">
+      <h2>查询 OCR 任务状态</h2>
+      <div class="form-group">
+        <label>任务 ID</label>
+        <input type="text" id="ocr-status-id" placeholder="批量识别返回的任务 ID" />
+      </div>
+      <div class="btn-group">
+        <button type="button" id="ocr-status-btn" class="btn btn-secondary">查询</button>
+      </div>
+      <div id="ocr-status-result" class="result-box" style="display:none;"></div>
+    </section>
+
+    <section class="card">
+      <h2>搜索建议</h2>
+      <p class="text-muted mb-0 mt-1">输入部分关键词，获取联想建议（用于搜索框补全）。</p>
+      <div class="form-group mt-2">
+        <label>输入关键词</label>
+        <input type="text" id="suggest-q" placeholder="至少输入 2 个字符" />
+      </div>
+      <div class="btn-group">
+        <button type="button" id="suggest-btn" class="btn btn-secondary">获取建议</button>
+      </div>
+      <div id="suggest-readable" class="result-readable" style="display:none;"></div>
+      <div id="suggest-advanced" style="display:none;"><span class="advanced-toggle" data-target="suggest-raw">▼ 查看原始响应</span><pre id="suggest-raw" class="raw-json" style="display:none;"></pre></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from './api.js';
+
+    function esc(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    document.body.addEventListener('click', function (e) {
+      const t = e.target.closest('.advanced-toggle');
+      if (!t) return;
+      const id = t.getAttribute('data-target');
+      const el = document.getElementById(id);
+      if (!el) return;
+      e.preventDefault();
+      const show = el.style.display === 'none';
+      el.style.display = show ? 'block' : 'none';
+      t.textContent = show ? '▲ 收起' : '▼ 查看原始响应';
+    });
+
+    document.getElementById('ocr-process-btn').addEventListener('click', async () => {
+      const file = document.getElementById('ocr-file').files[0];
+      const readEl = document.getElementById('ocr-readable');
+      const advEl = document.getElementById('ocr-advanced');
+      if (!file) { readEl.innerHTML = '<span style="color:var(--danger);">请选择一张图片</span>'; readEl.style.display = 'block'; return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      readEl.innerHTML = '识别中…';
+      readEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        const res = await api.ocrProcess(fd);
+        const d = res.data || {};
+        const text = (d.text || '').trim() || '（未识别到文字）';
+        const conf = d.confidence != null ? (d.confidence * 100).toFixed(1) + '%' : '-';
+        readEl.innerHTML = '<div class="detail-row"><span class="detail-label">识别结果</span><div class="detail-value content-block">' + esc(text) + '</div></div><div class="detail-row"><span class="detail-label">置信度</span><span class="detail-value">' + conf + '</span></div>';
+        advEl.style.display = 'block';
+        document.getElementById('ocr-raw').textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    document.getElementById('ocr-batch-btn').addEventListener('click', async () => {
+      const files = document.getElementById('ocr-batch-files').files;
+      const resEl = document.getElementById('ocr-batch-result');
+      if (!files.length) { resEl.textContent = '请选择至少一张图片'; resEl.style.display = 'block'; return; }
+      const fd = new FormData();
+      for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
+      resEl.textContent = '处理中…';
+      resEl.style.display = 'block';
+      try {
+        const res = await api.ocrBatch(fd);
+        resEl.textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        resEl.textContent = '错误: ' + err;
+      }
+    });
+
+    document.getElementById('ocr-status-btn').addEventListener('click', async () => {
+      const id = document.getElementById('ocr-status-id').value;
+      const resEl = document.getElementById('ocr-status-result');
+      if (!id) { resEl.textContent = '请输入任务 ID'; resEl.style.display = 'block'; return; }
+      resEl.textContent = '查询中…';
+      resEl.style.display = 'block';
+      try {
+        const res = await api.ocrStatus(id);
+        resEl.textContent = JSON.stringify(res, null, 2);
+      } catch (err) {
+        resEl.textContent = '错误: ' + err;
+      }
+    });
+
+    document.getElementById('suggest-btn').addEventListener('click', async () => {
+      const q = document.getElementById('suggest-q').value;
+      const readEl = document.getElementById('suggest-readable');
+      const advEl = document.getElementById('suggest-advanced');
+      if (q.length < 2) { readEl.innerHTML = '<span style="color:var(--danger);">请至少输入 2 个字符</span>'; readEl.style.display = 'block'; return; }
+      readEl.innerHTML = '获取中…';
+      readEl.style.display = 'block';
+      advEl.style.display = 'none';
+      try {
+        const data = await api.searchSuggestions({ q });
+        const list = Array.isArray(data) ? data : (data && data.items) ? data.items : [];
+        let html = '<div class="detail-row"><span class="detail-label">建议</span><span class="detail-value tag-list">';
+        if (list.length) list.forEach(s => { html += '<span>' + esc(typeof s === 'string' ? s : s.text || s.label || JSON.stringify(s)) + '</span>'; });
+        else html += '无';
+        html += '</span></div>';
+        readEl.innerHTML = html;
+        advEl.style.display = 'block';
+        document.getElementById('suggest-raw').textContent = JSON.stringify(list, null, 2);
+      } catch (err) {
+        readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+  </script>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById('nav-toggle');
+      var sidebar = document.getElementById('sidebar');
+      var overlay = document.getElementById('overlay');
+      function open() { sidebar.classList.add('open'); overlay.classList.add('open'); }
+      function close() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
+      toggle && toggle.addEventListener('click', open);
+      overlay && overlay.addEventListener('click', close);
+    })();
+  </script>
+</body>
+</html>
