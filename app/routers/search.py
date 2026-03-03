@@ -27,14 +27,14 @@ def search(
         try:
             dt_from = datetime.strptime(date_from, "%Y-%m-%d")
         except ValueError:
-            pass
+            raise HTTPException(status_code=400, detail="开始日期格式应为 YYYY-MM-DD")
     
     if date_to:
         try:
             dt_to = datetime.strptime(date_to, "%Y-%m-%d")
             dt_to = dt_to.replace(hour=23, minute=59, second=59)
         except ValueError:
-            pass
+            raise HTTPException(status_code=400, detail="结束日期格式应为 YYYY-MM-DD")
     
     results = search_service.search(
         query=q,

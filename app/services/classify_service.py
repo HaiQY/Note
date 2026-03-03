@@ -1,4 +1,7 @@
 from typing import List, Optional, Dict
+import math
+from collections import Counter
+import jieba
 from sqlalchemy.orm import Session
 from app.dao.category_dao import CategoryDAO
 from app.models.category import Category
@@ -56,6 +59,25 @@ class ClassifyService:
         default = self.category_dao.get_by_name("其他")
         return default
     
+    def _calculate_tfidf(self, content: str, keywords: Dict[str, float]) -> float:
+        if not content or not keywords:
+            return 0.0
+        
+        words = jieba.lcut(content.lower())
+        word_freq = Counter(words)
+        total_words = len(words)
+        
+        if total_words == 0:
+            return 0.0
+        
+        score = 0.0
+        for keyword, weight in keywords.items():
+            if keyword in word_freq:
+                tf = word_freq[keyword] / total_words
+                score += tf * weight
+        
+        return score / math.sqrt(sum(w**2 for w in keywords.values())) if keywords else 0.0
+    
     def calculate_similarity(self, content: str, category: Category) -> float:
         if not content or not category:
             return 0.0
@@ -64,15 +86,7 @@ class ClassifyService:
         if not expanded_keywords:
             return 0.0
         
-        content_lower = content.lower()
-        total_score = 0.0
-        max_possible = len(expanded_keywords)
-        
-        for keyword, weight in expanded_keywords.items():
-            if keyword in content_lower:
-                total_score += weight
-
-        return total_score / max_possible if max_possible > 0 else 0.0
+        return self._calculate_tfidf(content, expanded_keywords)
 
     def get_top_categories(self, content: str, top_k: int = 3) -> List[tuple]:
         if not content:

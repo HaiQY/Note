@@ -1,13 +1,18 @@
-from typing import List
+from pathlib import Path
+from typing import List, Optional
+
 import jieba
 import jieba.analyse
+
+from app.config import STOPWORDS_FILE
 from app.utils.text_utils import clean_text
 
+
 class KeywordService:
-    def __init__(self):
-        self.stopwords = self._load_stopwords()
+    def __init__(self, stopwords_path: Optional[str] = None):
+        self.stopwords = self._load_stopwords(stopwords_path or STOPWORDS_FILE)
     
-    def _load_stopwords(self) -> set:
+    def _load_stopwords(self, filepath: Optional[str] = None) -> set:
         default_stopwords = {
             "的", "是", "在", "了", "和", "与", "或", "等", "及", "也",
             "有", "这", "那", "之", "为", "以", "于", "上", "下", "中",
@@ -18,6 +23,15 @@ class KeywordService:
             "being", "have", "has", "had", "do", "does", "did", "will",
             "would", "could", "should", "may", "might", "must", "can"
         }
+        
+        if filepath and Path(filepath).exists():
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    custom_stopwords = set(line.strip() for line in f if line.strip())
+                    return default_stopwords | custom_stopwords
+            except Exception:
+                pass
+        
         return default_stopwords
     
     def extract_keywords(self, content: str, top_k: int = 5) -> List[str]:
@@ -79,9 +93,9 @@ class KeywordService:
         except Exception:
             return {}
     
-    def add_user_word(self, word: str):
+    def add_user_word(self, word: str) -> None:
         jieba.add_word(word)
     
-    def add_user_words(self, words: List[str]):
+    def add_user_words(self, words: List[str]) -> None:
         for word in words:
             jieba.add_word(word)

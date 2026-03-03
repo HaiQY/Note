@@ -15,11 +15,14 @@ class NoteDAO:
             query = query.filter(Note.category_id == category_id)
         if is_important is not None:
             query = query.filter(Note.is_important == is_important)
-        if keyword:
-            query = query.filter(Note.keywords.contains(keyword))
         
         total = query.count()
         notes = query.order_by(Note.created_at.desc()).offset(skip).limit(limit).all()
+        
+        if keyword:
+            notes = [n for n in notes if keyword in n.get_keywords_list()]
+            total = len(notes)
+        
         return notes, total
     
     def get_by_id(self, note_id: int) -> Optional[Note]:

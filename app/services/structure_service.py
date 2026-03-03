@@ -1,8 +1,12 @@
-from typing import List, Optional, Dict, Any, Tuple
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
+from threading import Lock
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
+
 from app.config import IMAGES_DIR
+from app.logger import logger
 
 
 @dataclass
@@ -21,10 +25,13 @@ class StructureResult:
 class StructureService:
     _instance = None
     _pipeline = None
+    _lock = Lock()
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
         return cls._instance
     
     def __init__(self):
@@ -47,10 +54,10 @@ class StructureService:
             )
             
         except ImportError:
-            print("Warning: PPStructureV3 not installed. Structure service will use fallback.")
+            logger.warning("PPStructureV3 not installed. Structure service will use fallback.")
             StructureService._pipeline = None
         except Exception as e:
-            print(f"Warning: Failed to initialize PPStructureV3: {e}")
+            logger.warning(f"Failed to initialize PPStructureV3: {e}")
             StructureService._pipeline = None
     
     def _check_gpu(self) -> bool:
@@ -183,7 +190,7 @@ class StructureService:
             
         except Exception as e:
             import traceback
-            print(f"Structure processing failed: {e}")
+            logger.error(f"Structure processing failed: {e}")
             traceback.print_exc()
             return self._fallback_result(image_path)
     
@@ -266,7 +273,7 @@ class StructureService:
             
         except Exception as e:
             import traceback
-            print(f"Structure processing failed: {e}")
+            logger.error(f"Structure processing failed: {e}")
             traceback.print_exc()
             return StructureResult(text="", markdown="", confidence=0.0)
     
@@ -345,7 +352,7 @@ class StructureService:
             }
             
         except Exception as e:
-            print(f"Diagram structure extraction failed: {e}")
+            logger.error(f"Diagram structure extraction failed: {e}")
             return {"nodes": [], "edges": [], "type": "unknown"}
     
     def _infer_edges(self, nodes: List[Dict]) -> List[Dict]:

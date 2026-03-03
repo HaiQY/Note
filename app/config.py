@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,7 +10,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 APP_NAME = os.getenv("APP_NAME", "Note Organizer")
 APP_ENV = os.getenv("APP_ENV", "development")
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "dev-secret-key-change-in-production"
+    else:
+        raise ValueError("SECRET_KEY must be set in production")
 
 DATA_DIR = Path(os.getenv("DATA_DIR", BASE_DIR / "data"))
 IMAGES_DIR = Path(os.getenv("IMAGES_DIR", DATA_DIR / "images"))
@@ -36,8 +42,33 @@ AI_REFINE_OCR = os.getenv("AI_REFINE_OCR", "false").lower() == "true"
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
+STOPWORDS_FILE = os.getenv("STOPWORDS_FILE", "")
+
+
 def ensure_directories():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
     CARDS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def validate_config():
+    errors = []
+    
+    if DATABASE_URL:
+        valid_schemes = ('sqlite:///', 'postgresql://', 'mysql://', 'mysql+pymysql://')
+        if not any(DATABASE_URL.startswith(scheme) for scheme in valid_schemes):
+            errors.append(f"DATABASE_URL 格式无效: {DATABASE_URL}")
+    
+    if not DEBUG:
+        if SECRET_KEY == "dev-secret-key-change-in-production":
+            errors.append("生产环境必须设置自定义 SECRET_KEY")
+    
+    if errors:
+        from app.logger import logger
+        for error in errors:
+            logger.error(f"配置错误: {error}")
+        if not DEBUG:
+            raise ValueError("配置验证失败: " + "; ".join(errors))
+    
+    return True

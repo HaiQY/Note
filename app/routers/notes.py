@@ -9,8 +9,8 @@ from app.database import get_db
 from app.schemas import ResponseBase, NoteResponse, NoteUpdate, NoteUploadResponse
 from app.dao import NoteDAO, CategoryDAO
 from app.services import OCRService, StructureService, ClassifyService, KeywordService, MarkdownService, AIService
-from app.utils import save_upload_file, validate_image, get_relative_path, extract_preview
-from app.config import IMAGES_DIR, AI_REFINE_OCR, USE_STRUCTURE_V3
+from app.utils import save_upload_file, validate_image, get_relative_path, extract_preview, calculate_total_pages
+from app.config import IMAGES_DIR, BASE_DIR, DATA_DIR, AI_REFINE_OCR, USE_STRUCTURE_V3
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
@@ -143,7 +143,7 @@ def get_notes(
             "created_at": note.created_at.isoformat()
         })
     
-    total_pages = (total + page_size - 1) // page_size
+    total_pages = calculate_total_pages(total, page_size)
     
     return ResponseBase(
         code=200,
@@ -156,6 +156,25 @@ def get_notes(
             "total_pages": total_pages
         }
     )
+
+@router.get("/{note_id}/image")
+def get_note_image(note_id: int, db: Session = Depends(get_db)):
+    """获取笔记原图"""
+    note_dao = NoteDAO(db)
+    note = note_dao.get_by_id(note_id)
+    
+    if not note:
+        raise HTTPException(status_code=404, detail="笔记不存在")
+    
+    image_path = Path(note.image_path)
+    if not image_path.is_absolute():
+        image_path = DATA_DIR / note.image_path
+    
+    if not image_path.exists():
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+    
+    return FileResponse(str(image_path))
+
 
 @router.get("/{note_id}", response_model=ResponseBase)
 def get_note(note_id: int, db: Session = Depends(get_db)):
@@ -227,7 +246,7 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
     
     image_path = Path(note.image_path)
     if not image_path.is_absolute():
-        image_path = IMAGES_DIR.parent / note.image_path
+        image_path = BASE_DIR / note.image_path
     
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="图片文件不存在")
@@ -334,22 +353,3 @@ def toggle_important(note_id: int, db: Session = Depends(get_db)):
             "is_important": new_status
         }
     )
-
-
-@router.get("/{note_id}/image")
-def get_note_image(note_id: int, db: Session = Depends(get_db)):
-    """获取笔记原图"""
-    note_dao = NoteDAO(db)
-    note = note_dao.get_by_id(note_id)
-    
-    if not note:
-        raise HTTPException(status_code=404, detail="笔记不存在")
-    
-    image_path = Path(note.image_path)
-    if not image_path.is_absolute():
-        image_path = IMAGES_DIR.parent / note.image_path
-    
-    if not image_path.exists():
-        raise HTTPException(status_code=404, detail="图片文件不存在")
-    
-    return FileResponse(str(image_path))

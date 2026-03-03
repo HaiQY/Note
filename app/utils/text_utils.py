@@ -2,6 +2,7 @@ import re
 import string
 from typing import List
 
+
 def clean_text(text: str) -> str:
     if not text:
         return ""
@@ -11,6 +12,7 @@ def clean_text(text: str) -> str:
     text = text.strip()
     
     return text
+
 
 def extract_preview(text: str, max_length: int = 100) -> str:
     if not text:
@@ -22,9 +24,11 @@ def extract_preview(text: str, max_length: int = 100) -> str:
     
     return cleaned[:max_length] + "..."
 
+
 def remove_punctuation(text: str) -> str:
     translator = str.maketrans('', '', string.punctuation + '，。！？、；：""''（）【】')
     return text.translate(translator)
+
 
 def count_words(text: str) -> int:
     if not text:
@@ -34,6 +38,7 @@ def count_words(text: str) -> int:
     english_words = len(re.findall(r'[a-zA-Z]+', text))
     
     return chinese_chars + english_words
+
 
 def highlight_keywords(text: str, keywords: List[str], tag: str = "mark") -> str:
     if not keywords:

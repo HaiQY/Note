@@ -6,6 +6,7 @@ from app.database import get_db
 from app.schemas import ResponseBase, CardCreate, CardUpdate, CardResponse, CardGenerateRequest, CardReviewRequest, CardReviewResponse
 from app.dao import CardDAO, NoteDAO
 from app.services import AIService
+from app.utils import calculate_total_pages
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 
@@ -89,7 +90,7 @@ def get_cards(
             "created_at": card.created_at.isoformat()
         })
     
-    total_pages = (total + page_size - 1) // page_size
+    total_pages = calculate_total_pages(total, page_size)
     
     return ResponseBase(
         code=200,

@@ -2,8 +2,9 @@ from sqlalchemy import Column, String, Text, Boolean, Integer, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.base import TimestampMixin
+from app.models.json_mixin import JSONColumnMixin
 
-class Note(TimestampMixin, Base):
+class Note(JSONColumnMixin, TimestampMixin, Base):
     __tablename__ = "notes"
     
     title = Column(String(200))
@@ -23,23 +24,13 @@ class Note(TimestampMixin, Base):
     review_cards = relationship("ReviewCard", back_populates="note", cascade="all, delete-orphan")
     
     def get_keywords_list(self) -> list:
-        import json
-        try:
-            return json.loads(self.keywords) if self.keywords else []
-        except:
-            return []
+        return self.get_json_list("keywords")
     
     def set_keywords_list(self, keywords: list):
-        import json
-        self.keywords = json.dumps(keywords, ensure_ascii=False)
+        self.set_json_list("keywords", keywords)
     
     def get_extra_data(self) -> dict:
-        import json
-        try:
-            return json.loads(self.extra_data) if self.extra_data else {}
-        except:
-            return {}
+        return self.get_json_dict("extra_data")
     
     def set_extra_data(self, data: dict):
-        import json
-        self.extra_data = json.dumps(data, ensure_ascii=False)
+        self.set_json_dict("extra_data", data)

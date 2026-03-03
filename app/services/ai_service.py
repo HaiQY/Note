@@ -1,6 +1,10 @@
-from typing import List
 import json
+import re
+from typing import List
+
 from app.config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, ZHIPU_API_KEY
+from app.logger import logger
+
 
 class AIService:
     def __init__(self):
@@ -82,12 +86,20 @@ class AIService:
             
             content = response.choices[0].message.content
             
-            json_match = content[content.find("{"):content.rfind("}")+1]
-            data = json.loads(json_match)
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group())
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parse error: {e}")
+                    return []
+            else:
+                logger.warning("No JSON found in response")
+                return []
             
             return data.get("cards", [])
         except Exception as e:
-            print(f"AI generation failed: {e}")
+            logger.error(f"AI generation failed: {e}")
             return []
     
     def _generate_mock_cards(self, content: str, card_count: int, card_types: List[str]) -> List[dict]:
@@ -122,7 +134,6 @@ class AIService:
         return f"[摘要] {content[:100]}..." if content else ""
     
     async def refine_ocr_content(self, content: str) -> str:
-        """使用AI整理OCR识别的内容 - 使用智谱 glm-4.7-flash 模型"""
         if self.zhipu_client:
             try:
                 response = self.zhipu_client.chat.completions.create(
@@ -154,6 +165,6 @@ class AIService:
                 result = response.choices[0].message.content or content
                 return result
             except Exception as e:
-                print(f"ZhipuAI refine OCR failed: {e}")
+                logger.error(f"ZhipuAI refine OCR failed: {e}")
         
         return content

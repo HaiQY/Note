@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +8,9 @@ from contextlib import asynccontextmanager
 from app.config import APP_NAME, DEBUG
 from app.database import init_db
 from app.routers import router as api_router
+from app.middleware.rate_limit import rate_limit_middleware
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,16 +28,19 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.middleware("http")(rate_limit_middleware)
 
-# Serve static frontend files at root
 app.include_router(api_router)
-app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
+
+static_dir = Path("app/static")
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 
 
 

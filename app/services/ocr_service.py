@@ -1,21 +1,30 @@
-from typing import List, Optional, Tuple
 from pathlib import Path
+from threading import Lock
+from typing import List, Optional, Tuple
+
 import numpy as np
+
 from app.config import OCR_LANG
+from app.logger import logger
+
 
 class OCRResult:
-    def __init__(self, text: str, confidence: float, boxes: List[List[int]] = None):
+    def __init__(self, text: str, confidence: float, boxes: Optional[List[List[int]]] = None):
         self.text = text
         self.confidence = confidence
         self.boxes = boxes or []
 
+
 class OCRService:
     _instance = None
     _ocr = None
+    _lock = Lock()
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
         return cls._instance
     
     def __init__(self):
@@ -34,10 +43,10 @@ class OCRService:
             OCRService._ocr = PaddleOCR(**kwargs)
                 
         except ImportError:
-            print("Warning: PaddleOCR not installed. OCR service will return mock data.")
+            logger.warning("PaddleOCR not installed. OCR service will return mock data.")
             OCRService._ocr = None
         except Exception as e:
-            print(f"Warning: Failed to initialize PaddleOCR: {e}")
+            logger.warning(f"Failed to initialize PaddleOCR: {e}")
             OCRService._ocr = None
     
     def process_image(self, image_path: str) -> OCRResult:

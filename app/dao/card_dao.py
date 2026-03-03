@@ -4,6 +4,11 @@ from datetime import datetime, timedelta
 from app.models.card import ReviewCard, ReviewLog
 import math
 
+SM2_EF_MIN = 1.3
+SM2_EF_INCREMENT_BASE = 0.1
+SM2_EF_PENALTY_FACTOR = 0.08
+SM2_EF_PENALTY_MULTIPLIER = 0.02
+
 class CardDAO:
     def __init__(self, db: Session):
         self.db = db
@@ -100,7 +105,7 @@ class CardDAO:
             else:
                 card.interval = math.ceil(old_interval * old_ease_factor)
             
-            card.ease_factor = max(1.3, old_ease_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
+            card.ease_factor = max(SM2_EF_MIN, old_ease_factor + (SM2_EF_INCREMENT_BASE - (5 - quality) * (SM2_EF_PENALTY_FACTOR + (5 - quality) * SM2_EF_PENALTY_MULTIPLIER)))
             card.correct_count += 1
         else:
             card.interval = 1
