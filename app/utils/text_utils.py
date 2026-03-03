@@ -9,6 +9,18 @@ def clean_text(text: str) -> str:
     
     text = re.sub(r'\s+', ' ', text)
     text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
+    
+    text = re.sub(r'\$\$[^$]+\$\$', ' ', text)
+    text = re.sub(r'\$[^$]+\$', ' ', text)
+    
+    text = re.sub(r'\\frac\{[^}]*\}\{[^}]*\}', ' ', text)
+    text = re.sub(r'\\text\{[^}]*\}', ' ', text)
+    text = re.sub(r'\\frac\.[^ ]*', ' ', text)
+    text = re.sub(r'\\[a-zA-Z]+\{[^}]*\}', ' ', text)
+    text = re.sub(r'\\[a-zA-Z]+', ' ', text)
+    text = re.sub(r'_{[^}]*}', ' ', text)
+    text = re.sub(r'\^{[^}]*}', ' ', text)
+    
     text = text.strip()
     
     return text

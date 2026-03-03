@@ -21,7 +21,12 @@ class KeywordService:
             "就", "才", "还", "又", "再", "都", "很", "太", "更", "最",
             "the", "a", "an", "is", "are", "was", "were", "be", "been",
             "being", "have", "has", "had", "do", "does", "did", "will",
-            "would", "could", "should", "may", "might", "must", "can"
+            "would", "could", "should", "may", "might", "must", "can",
+            "frac", "text", "eta", "quad", "cdot", "sqrt", "sum", "int",
+            "lim", "alpha", "beta", "gamma", "delta", "theta", "lambda",
+            "omega", "sigma", "phi", "psi", "rho", "mu", "pi", "infty",
+            "rightarrow", "leftarrow", "Rightarrow", "Leftarrow",
+            "mathrm", "mathbf", "italic", "underline",
         }
         
         if filepath and Path(filepath).exists():
