@@ -9,6 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="common.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 </head>
 <body>
   <header class="app-header">
@@ -272,6 +275,15 @@ async function loadNoteToViewer(noteId) {
         const data = await api.getNote(noteId);
         if (data.content) {
           viewerContent.innerHTML = marked.parse(data.content);
+          renderMathInElement(viewerContent, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false},
+              {left: '\\[', right: '\\]', display: true},
+              {left: '\\(', right: '\\)', display: false}
+            ],
+            throwOnError: false
+          });
         } else {
           viewerContent.innerHTML = '<p class="text-muted" style="text-align:center;padding:2rem;">该笔记暂无内容</p>';
         }
