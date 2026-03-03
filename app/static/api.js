@@ -92,4 +92,15 @@ export const api = {
         body: JSON.stringify(body)
     }),
     deleteCard: (cardId) => request(`/cards/${cardId}`, { method: 'DELETE' }),
+
+    getSettings: () => request('/settings').then(res => res.data || []),
+    getSetting: (key) => request(`/settings/${key}`).then(res => res.data),
+    updateSetting: (key, value) => request(`/settings/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value })
+    }),
+    toggleSetting: (key, value) => request(`/settings/boolean/${key}?value=${value}`, {
+        method: 'POST'
+    }),
 };

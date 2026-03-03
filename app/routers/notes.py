@@ -7,10 +7,10 @@ from pathlib import Path
 
 from app.database import get_db
 from app.schemas import ResponseBase, NoteResponse, NoteUpdate, NoteUploadResponse
-from app.dao import NoteDAO, CategoryDAO
+from app.dao import NoteDAO, CategoryDAO, SettingsDAO
 from app.services import OCRService, StructureService, ClassifyService, KeywordService, MarkdownService, AIService
 from app.utils import save_upload_file, validate_image, get_relative_path, extract_preview, calculate_total_pages
-from app.config import IMAGES_DIR, BASE_DIR, DATA_DIR, AI_REFINE_OCR, USE_STRUCTURE_V3
+from app.config import IMAGES_DIR, BASE_DIR, DATA_DIR
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
@@ -30,9 +30,12 @@ async def upload_note(
     relative_path = get_relative_path(file_path)
     
     note_dao = NoteDAO(db)
+    settings_dao = SettingsDAO(db)
+    use_structure_v3 = settings_dao.get_bool("USE_STRUCTURE_V3", True)
+    ai_refine_ocr = settings_dao.get_bool("AI_REFINE_OCR", False)
     title = f"{datetime.now().strftime('%Y-%m-%d')} 笔记"
     
-    if USE_STRUCTURE_V3:
+    if use_structure_v3:
         structure_service = StructureService()
         structure_result = structure_service.process_image(str(file_path))
         
@@ -57,7 +60,7 @@ async def upload_note(
         formula_count = 0
         table_count = 0
     
-    if AI_REFINE_OCR and content:
+    if ai_refine_ocr and content:
         ai_service = AIService()
         content = await ai_service.refine_ocr_content(content)
     
@@ -239,6 +242,9 @@ def delete_note(note_id: int, db: Session = Depends(get_db)):
 @router.post("/{note_id}/reprocess", response_model=ResponseBase)
 async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
     note_dao = NoteDAO(db)
+    settings_dao = SettingsDAO(db)
+    use_structure_v3 = settings_dao.get_bool("USE_STRUCTURE_V3", True)
+    ai_refine_ocr = settings_dao.get_bool("AI_REFINE_OCR", False)
     note = note_dao.get_by_id(note_id)
     
     if not note:
@@ -246,12 +252,12 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
     
     image_path = Path(note.image_path)
     if not image_path.is_absolute():
-        image_path = BASE_DIR / note.image_path
+        image_path = DATA_DIR / note.image_path
     
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="图片文件不存在")
     
-    if USE_STRUCTURE_V3:
+    if use_structure_v3:
         structure_service = StructureService()
         structure_result = structure_service.process_image(str(image_path))
         
@@ -267,7 +273,7 @@ async def reprocess_note(note_id: int, db: Session = Depends(get_db)):
         formula_count = 0
         table_count = 0
     
-    if AI_REFINE_OCR and content:
+    if ai_refine_ocr and content:
         ai_service = AIService()
         content = await ai_service.refine_ocr_content(content)
     

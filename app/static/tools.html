@@ -90,6 +90,38 @@
       <div id="suggest-readable" class="result-readable" style="display:none;"></div>
       <div id="suggest-advanced" style="display:none;"><span class="advanced-toggle" data-target="suggest-raw">▼ 查看原始响应</span><pre id="suggest-raw" class="raw-json" style="display:none;"></pre></div>
     </section>
+
+    <section class="card">
+      <h2>OCR 设置</h2>
+      <p class="text-muted mb-0 mt-1">配置 OCR 识别和 AI 整理功能的选项。修改后即时生效。</p>
+      
+      <div class="form-group mt-2">
+        <label class="toggle-row">
+          <span>使用 Structure V3 模型</span>
+          <label class="toggle">
+            <input type="checkbox" id="setting-structure-v3" />
+            <span class="toggle-slider"></span>
+          </label>
+        </label>
+        <p class="text-muted" style="font-size:0.85rem;margin-top:0.25rem;">启用 PaddleOCR Structure V3 高级模型，支持表格和公式识别。关闭则使用基础 OCR。</p>
+      </div>
+
+      <div class="form-group mt-2">
+        <label class="toggle-row">
+          <span>AI 整理 OCR 结果</span>
+          <label class="toggle">
+            <input type="checkbox" id="setting-ai-refine" />
+            <span class="toggle-slider"></span>
+          </label>
+        </label>
+        <p class="text-muted" style="font-size:0.85rem;margin-top:0.25rem;">使用智谱AIglm-4.7-flash模型整理OCR识别结果，修正错别字、还原表格格式。需配置ZHIPU_API_KEY。</p>
+      </div>
+
+      <div class="btn-group mt-2">
+        <button type="button" id="save-settings-btn" class="btn btn-primary">保存设置</button>
+      </div>
+      <div id="settings-result" class="result-readable" style="display:none;"></div>
+    </section>
   </main>
 
   <script type="module">
@@ -189,6 +221,38 @@
         readEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
       }
     });
+
+    // 加载设置
+    async function loadSettings() {
+      try {
+        const settings = await api.getSettings();
+        const structureV3 = settings.find(s => s.key === 'USE_STRUCTURE_V3');
+        const aiRefine = settings.find(s => s.key === 'AI_REFINE_OCR');
+        document.getElementById('setting-structure-v3').checked = structureV3 && structureV3.value === 'true';
+        document.getElementById('setting-ai-refine').checked = aiRefine && aiRefine.value === 'true';
+      } catch (err) {
+        console.error('加载设置失败:', err);
+      }
+    }
+
+    // 保存设置
+    document.getElementById('save-settings-btn').addEventListener('click', async () => {
+      const structureV3 = document.getElementById('setting-structure-v3').checked;
+      const aiRefine = document.getElementById('setting-ai-refine').checked;
+      const resultEl = document.getElementById('settings-result');
+      resultEl.innerHTML = '保存中…';
+      resultEl.style.display = 'block';
+      try {
+        await api.toggleSetting('USE_STRUCTURE_V3', structureV3);
+        await api.toggleSetting('AI_REFINE_OCR', aiRefine);
+        resultEl.innerHTML = '<p class="success-msg">设置已保存</p>';
+      } catch (err) {
+        resultEl.innerHTML = '<span style="color:var(--danger);">错误: ' + esc(err + '') + '</span>';
+      }
+    });
+
+    // 页面加载时获取设置
+    loadSettings();
   </script>
 
   <script>

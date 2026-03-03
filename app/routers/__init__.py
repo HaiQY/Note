@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.routers import notes, categories, search, cards, ocr
+from app.routers import notes, categories, search, cards, ocr, settings
 
 router = APIRouter()
 
@@ -8,3 +8,4 @@ router.include_router(categories.router)
 router.include_router(search.router)
 router.include_router(cards.router)
 router.include_router(ocr.router)
+router.include_router(settings.router)

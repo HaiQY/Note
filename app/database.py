@@ -23,9 +23,11 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     
     from app.dao.category_dao import CategoryDAO
+    from app.dao.settings_dao import SettingsDAO
     db = SessionLocal()
     try:
         CategoryDAO(db).init_default_categories()
+        SettingsDAO(db).init_defaults()
     finally:
         db.close()
 
