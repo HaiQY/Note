@@ -1,12 +1,10 @@
 from typing import List, Optional, Dict
-import math
 from collections import Counter
-import jieba
-import jieba.analyse
 from sqlalchemy.orm import Session
 from app.dao.category_dao import CategoryDAO
 from app.models.category import Category
 from app.utils.cilin import get_cilin
+from app.services.keyword_service import KeywordService
 
 CORE_WEIGHT = 3.0
 IMPORTANT_WEIGHT = 2.0
@@ -69,8 +67,9 @@ LAYERED_KEYWORDS = {
 
 
 class ClassifyService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, keyword_service: Optional[KeywordService] = None):
         self.category_dao = CategoryDAO(db)
+        self.keyword_service = keyword_service or KeywordService()
         self._keyword_cache: Dict[int, Dict[str, float]] = {}
         self._layered_cache: Dict[str, Dict[str, Dict[str, float]]] = {}
     
@@ -105,31 +104,6 @@ class ClassifyService:
         
         self._layered_cache[category_name] = result
         return result
-    
-    def _extract_hidden_keywords(self, content: str, top_k: int = 20) -> List[str]:
-        if not content:
-            return []
-        
-        try:
-            keywords = jieba.analyse.extract_tags(
-                content,
-                topK=top_k * 2,
-                withWeight=True,
-                allowPOS=('n', 'nr', 'ns', 'nt', 'nz', 'v', 'vn', 'eng')
-            )
-            
-            stopwords = {"的", "是", "在", "了", "和", "与", "或", "等", "及", "也", "有", "这", "那", "之", "为", "以", "于", "上", "下", "中", "来", "去", "到", "从", "向", "把", "被", "将", "能", "会", "可以", "可能", "应该", "必须", "要", "得", "着", "过", "地", "就", "才", "还", "又", "再", "都", "很", "太", "更", "最", "个", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "第", "其", "此", "每", "各", "某", "所", "些"}
-            
-            filtered = []
-            for kw, weight in keywords:
-                if kw.lower() not in stopwords and len(kw) > 1:
-                    filtered.append(kw.lower())
-                    if len(filtered) >= top_k:
-                        break
-            
-            return filtered
-        except Exception:
-            return []
     
     def _calculate_weighted_score(self, content: str, hidden_keywords: List[str], category: Category) -> float:
         if not category:
@@ -173,7 +147,7 @@ class ClassifyService:
         if not categories:
             return None
         
-        hidden_keywords = self._extract_hidden_keywords(content, 20)
+        hidden_keywords = self.keyword_service.extract_keywords(content, top_k=20)
         
         scores = []
         for category in categories:
@@ -196,7 +170,7 @@ class ClassifyService:
         if not categories:
             return []
 
-        hidden_keywords = self._extract_hidden_keywords(content, 20)
+        hidden_keywords = self.keyword_service.extract_keywords(content, top_k=20)
 
         scores = []
         for category in categories:

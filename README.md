@@ -251,6 +251,13 @@ Note/
 │   ├── middleware/                  # 中间件
 │   │   ├── __init__.py
 │   │   └── rate_limit.py            # 请求限流中间件
+│   ├── exp_service/                 # 实验性模块
+│   │   ├── __init__.py
+│   │   ├── config.py                # 实验模块配置
+│   │   ├── embedding_classifier.py  # Embedding分类器
+│   │   ├── category_embeddings.py   # 分类向量管理
+│   │   ├── benchmark.py             # 基准测试脚本
+│   │   └── README.md                # 实验模块文档
 │   └── static/                      # 前端静态文件
 │       ├── index.html               # 首页
 │       ├── notes.html               # 笔记管理页
@@ -267,6 +274,8 @@ Note/
 │   │   ├── 物理/
 │   │   ├── 其他/
 │   │   └── 未分类/
+│   ├── embedding_cache/             # Embedding向量缓存
+│   ├── benchmark/                   # 基准测试结果
 │   └── cards/                       # 卡片数据(可选)
 └── docs/                            # 文档
     ├── 研究报告.md
@@ -293,6 +302,7 @@ Note/
 | **PaddleOCR** | 3.4.0 | 文本识别(Chinese) |
 | **PaddlePaddle** | 3.3.0 | 深度学习框架(GPU) |
 | **OpenAI SDK** | 2.21.0 | GPT API调用 |
+| **Sentence-Transformers** | ≥2.2.0 | 文本Embedding(实验性) |
 
 ### 自然语言处理
 
@@ -762,6 +772,50 @@ $$\text{score}(note, query) = I_{\text{title}} \times 2 + I_{\text{content}} + \
 
 排序结果：笔记1 (4.0) > 笔记2 (1.5)
 ```
+
+---
+
+### 5. Embedding分类算法（实验性）
+
+> 本算法为实验性功能，位于 `app/exp_service/` 模块，用于与关键词匹配方法进行对比研究。
+
+**算法名称**：基于语义向量的零样本分类
+
+**模型**：BGE-small-zh-v1.5（768维中文向量模型）
+
+**核心思想**：
+1. 预计算每个分类的语义向量
+2. 将笔记内容编码为向量
+3. 计算余弦相似度，选择最相似的分类
+
+**流程**：
+```
+输入文本 → Embedding模型 → 文本向量 (768维)
+                        ↓
+预计算分类向量 ───────→ 余弦相似度计算
+                        ↓
+                    选择最高分分类
+```
+
+**相似度计算**：
+$$\text{similarity} = \frac{\vec{v}_{\text{text}} \cdot \vec{v}_{\text{category}}}{\|\vec{v}_{\text{text}}\| \times \|\vec{v}_{\text{category}}\|}$$
+
+**与关键词匹配对比**：
+
+| 维度 | 关键词匹配 | Embedding分类 |
+|------|------------|---------------|
+| 原理 | 关键词命中计数 | 语义向量相似度 |
+| 速度 | 快 | 较慢（首次加载模型） |
+| 泛化能力 | 弱（需同义词扩展） | 强（语义相似即可） |
+| 可解释性 | 高（可见匹配词） | 低（黑盒语义） |
+| 新增分类 | 需定义关键词 | 仅需描述文本 |
+
+**运行基准测试**：
+```bash
+python -m app.exp_service.benchmark
+```
+
+结果保存在 `data/benchmark/` 目录，可用于研究报告。
 
 ---
 
