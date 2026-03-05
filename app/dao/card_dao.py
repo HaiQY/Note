@@ -101,7 +101,7 @@ class CardDAO:
             if card.review_count == 0:
                 card.interval = 1
             elif card.review_count == 1:
-                card.interval = 6
+                card.interval = 3
             else:
                 card.interval = math.ceil(old_interval * old_ease_factor)
             
